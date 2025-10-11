@@ -1,0 +1,43 @@
+{
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "git": {
+    "deploymentEnabled": true
+  },
+  "env": [
+    {
+      "key": "AUTH_URL",
+      "description": "NextAuth URL for authentication callback"
+    },
+    {
+      "key": "AUTH_SECRET",
+      "description": "NextAuth secret for session encryption"
+    },
+    {
+      "key": "AUTH_GITHUB_ID",
+      "description": "GitHub OAuth App ID"
+    },
+    {
+      "key": "AUTH_GITHUB_SECRET",
+      "description": "GitHub OAuth App Secret"
+    },
+    {
+      "key": "AUTH_GOOGLE_ID",
+      "description": "Google OAuth App ID"
+    },
+    {
+      "key": "AUTH_GOOGLE_SECRET",
+      "description": "Google OAuth App Secret"
+    },
+    {
+      "key": "GITHUB_TOKEN",
+      "description": "GitHub Personal Access Token for API requests"
+    },
+    {
+      "key": "NEXT_PUBLIC_CONVEX_URL",
+      "description": "Convex deployment URL"
+    }
+  ]
+}
