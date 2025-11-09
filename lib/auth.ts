@@ -41,37 +41,54 @@ if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) {
 // In production, NextAuth will warn if secret is missing, but won't fail the build
 const authSecret = process.env.AUTH_SECRET || "dev-secret-change-in-production-min-32-chars"
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: authSecret,
-  providers: providers.length > 0 ? providers : [
-    // Fallback: provide a dummy provider to prevent NextAuth from failing
-    // This won't work for actual auth, but allows the build to succeed
-    GitHub({
-      clientId: "dummy",
-      clientSecret: "dummy",
-    }),
-  ],
-  callbacks: {
-    async jwt({ token, user, account }) {
-      if (user) {
-        token.id = user.id
-        token.name = user.name
-        token.email = user.email
-      }
-      if (account) {
-        token.provider = account.provider
-      }
-      return token
+// Initialize NextAuth with error handling
+let nextAuthConfig: ReturnType<typeof NextAuth> | null = null
+
+try {
+  nextAuthConfig = NextAuth({
+    secret: authSecret,
+    providers: providers.length > 0 ? providers : [
+      // Fallback: provide a dummy provider to prevent NextAuth from failing
+      // This won't work for actual auth, but allows the build to succeed
+      GitHub({
+        clientId: "dummy",
+        clientSecret: "dummy",
+      }),
+    ],
+    callbacks: {
+      async jwt({ token, user, account }) {
+        if (user) {
+          token.id = user.id
+          token.name = user.name
+          token.email = user.email
+        }
+        if (account) {
+          token.provider = account.provider
+        }
+        return token
+      },
+      async session({ session, token }) {
+        if (session.user) {
+          session.user.id = token.id as string
+          session.user.provider = token.provider as string
+        }
+        return session
+      },
     },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string
-        session.user.provider = token.provider as string
-      }
-      return session
+    pages: {
+      signIn: "/auth/signin",
     },
-  },
-  pages: {
-    signIn: "/auth/signin",
-  },
-})
+  })
+} catch (error) {
+  console.warn("NextAuth initialization failed:", error)
+  // Create a minimal fallback that exports undefined handlers
+  // The route handler will use fallback handlers
+  nextAuthConfig = null
+}
+
+export const { handlers, auth, signIn, signOut } = nextAuthConfig || {
+  handlers: undefined,
+  auth: async () => null,
+  signIn: async () => ({ error: "Not configured" }),
+  signOut: async () => ({ error: "Not configured" }),
+}

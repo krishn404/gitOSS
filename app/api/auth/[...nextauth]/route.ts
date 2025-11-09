@@ -1,8 +1,13 @@
 import { handlers } from "@/lib/auth"
+import { NextResponse } from "next/server"
 
-// Ensure handlers are available, provide fallback if not
-if (!handlers) {
-  throw new Error("NextAuth handlers not initialized. Check environment variables.")
+// Provide fallback handlers if NextAuth didn't initialize
+const fallbackHandler = async () => {
+  return NextResponse.json(
+    { error: "Authentication not configured. Please set required environment variables." },
+    { status: 503 }
+  )
 }
 
-export const { GET, POST } = handlers
+export const GET = handlers?.GET || fallbackHandler
+export const POST = handlers?.POST || fallbackHandler
