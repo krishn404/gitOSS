@@ -3,7 +3,14 @@ import { createOctokit } from "@/lib/github"
 import { redis } from "@/lib/redis"
 import { ConvexHttpClient } from "convex/browser"
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
+// Lazy initialization of Convex client to avoid build-time errors
+function getConvexClient() {
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
+  if (!convexUrl) {
+    return null
+  }
+  return new ConvexHttpClient(convexUrl)
+}
 
 interface Repository {
   id: number
@@ -52,16 +59,20 @@ export async function GET(request: NextRequest) {
         ? `opensource:trending:${trendingPeriod}:${sortBy}`
         : `opensource:${search || "default"}:${language || "all"}:${minStars || "any"}:${sortBy}`
 
-    try {
-      const cached = await convex.query("repositories:getRepositoriesFromCache", {
-        cacheKey,
-      } as any)
+    // Try Convex cache first if available
+    const convexClient = getConvexClient()
+    if (convexClient) {
+      try {
+        const cached = await convexClient.query("repositories:getRepositoriesFromCache" as any, {
+          cacheKey,
+        })
 
-      if (cached) {
-        return NextResponse.json({ repositories: cached.repositories })
+        if (cached) {
+          return NextResponse.json({ repositories: cached.repositories })
+        }
+      } catch (error) {
+        console.warn("Convex cache miss, falling back to Redis:", error)
       }
-    } catch (error) {
-      console.warn("Convex cache miss, falling back to Redis:", error)
     }
 
     try {
@@ -203,18 +214,21 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    try {
-      await convex.mutation("repositories:cacheRepositories", {
-        cacheKey,
-        query: search || "default",
-        language,
-        page: 1,
-        repositories,
-        total: repositories.length,
-        hasMore: repositories.length >= 50,
-      } as any)
-    } catch (error) {
-      console.warn("Failed to cache in Convex:", error)
+    // Cache in Convex if available
+    if (convexClient) {
+      try {
+        await convexClient.mutation("repositories:cacheRepositories" as any, {
+          cacheKey,
+          query: search || "default",
+          language,
+          page: 1,
+          repositories,
+          total: repositories.length,
+          hasMore: repositories.length >= 50,
+        })
+      } catch (error) {
+        console.warn("Failed to cache in Convex:", error)
+      }
     }
 
     try {
