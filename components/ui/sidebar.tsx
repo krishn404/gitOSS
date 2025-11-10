@@ -2,9 +2,9 @@
 
 import { cn } from "@/lib/utils"
 import { useState } from "react"
-import { ChevronDown, Home, TrendingUp, Compass } from "lucide-react"
+import { ChevronDown, Home, TrendingUp, Compass, Heart } from "lucide-react"
 import { useOpenSourceView } from "@/components/opensource/opensource-context"
-
+import { AdCard } from "@/components/AdCard"
 
 export function Sidebar() {
   const { activeNav, setActiveNav, selectedLanguages, toggleLanguage } = useOpenSourceView()
@@ -51,7 +51,6 @@ export function Sidebar() {
                     "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
                     isActive ? "bg-white/10 text-white" : "text-gray-400 hover:bg-white/5 hover:text-white",
                   )}
-                  suppressHydrationWarning
                 >
                   <Icon className="h-4 w-4" />
                   <span>{item.label}</span>
@@ -62,14 +61,13 @@ export function Sidebar() {
         </div>
       </div>
 
+      {/* Filters Section */}
       <div className="flex-1 min-h-0 pt-4">
         <div className="flex h-full flex-col gap-4">
-          {/* Filters Section - Expandable */}
           <section className="flex min-h-[220px] flex-1 flex-col overflow-hidden">
             <button
               onClick={() => setFiltersOpen((prev) => !prev)}
               className="mb-4 flex w-full items-center justify-between px-2 text-xs uppercase tracking-wider text-gray-500 transition-colors hover:text-gray-300"
-              suppressHydrationWarning
             >
               <span>Filters</span>
               <ChevronDown className={cn("h-4 w-4 transition-transform", filtersOpen && "rotate-180")} />
@@ -78,7 +76,6 @@ export function Sidebar() {
             {filtersOpen && (
               <div className="flex-1 overflow-y-auto pr-1">
                 <div className="space-y-4">
-                  {/* Language Badges */}
                   <div>
                     <p className="mb-3 px-2 text-xs text-gray-400">Programming Languages</p>
                     <div className="flex flex-wrap gap-2">
@@ -94,7 +91,6 @@ export function Sidebar() {
                                 ? `${lang.color} scale-105 opacity-100`
                                 : "border-white/10 bg-white/5 text-gray-400 hover:bg-white/10",
                             )}
-                            suppressHydrationWarning
                           >
                             {lang.name}
                           </button>
@@ -107,15 +103,23 @@ export function Sidebar() {
             )}
           </section>
 
-          
+          {/* Ad Card */}
+          <AdCard />
         </div>
       </div>
 
       {/* Footer */}
-      <div className="mt-4 border-t border-white/10 pt-4">
-        <p className="text-center text-xs text-gray-500">Browsing as guest</p>
-        <p className="mt-1 text-center text-xs text-gray-600">Auth in production</p>
-      </div>
-    </div>
+      <div className="mt-4 border-t border-white/10 pt-4 flex justify-center">
+      <a
+        href="https://github.com/sponsors/krishn404?target=krishn404/gitOSS"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 rounded-md border border-white/10 bg-[#1c1c1d] px-4 py-2 text-sm font-medium text-white transition-all duration-200 hover:bg-[#2a2a2b] hover:border-white/20"
+      >
+        <Heart size={16} className="text-pink-400" />
+        Sponsor This Project On GitHub
+      </a>
+        </div> 
+        </div>
   )
 }
