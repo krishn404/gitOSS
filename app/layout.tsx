@@ -11,7 +11,7 @@ import Script from "next/script"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata = {
-  title: "OSS Finder - Discover Open Source",
+  title: "GitOSS - Discover Open Source",
   description: "Explore and discover amazing open-source repositories.",
 }
 

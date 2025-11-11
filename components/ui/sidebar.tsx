@@ -2,11 +2,19 @@
 
 import { cn } from "@/lib/utils"
 import { useState } from "react"
-import { ChevronDown, Home, TrendingUp, Compass, Heart } from "lucide-react"
+import { ChevronDown, Home, TrendingUp, Compass, Heart, PanelLeftClose } from "lucide-react"
 import { useOpenSourceView } from "@/components/opensource/opensource-context"
 import { AdCard } from "@/components/AdCard"
 
-export function Sidebar() {
+export type SidebarProps = {
+  isOpen?: boolean
+  onToggle?: () => void
+}
+
+export function Sidebar({
+  isOpen = true,
+  onToggle,
+}: SidebarProps) {
   const { activeNav, setActiveNav, selectedLanguages, toggleLanguage } = useOpenSourceView()
   const [filtersOpen, setFiltersOpen] = useState(true)
 
@@ -31,9 +39,20 @@ export function Sidebar() {
     <div className="flex h-full flex-col px-4 py-6">
       <div className="shrink-0 space-y-8">
         {/* Header */}
-        <div>
-          <h1 className="text-xl font-bold text-white">OSS Finder</h1>
-          <p className="mt-1 text-xs text-gray-400">Discover amazing open-source projects</p>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h1 className="text-xl font-bold text-white">GitOSS</h1>
+            <p className="mt-1 text-xs text-gray-400">Discover amazing open-source projects</p>
+          </div>
+          {onToggle && (
+            <button
+              aria-label={isOpen ? "Close sidebar" : "Open sidebar"}
+              onClick={onToggle}
+              className="rounded-md p-1 text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+            >
+              <PanelLeftClose className="h-5 w-5" />
+            </button>
+          )}
         </div>
 
         {/* Navigation */}
@@ -62,9 +81,9 @@ export function Sidebar() {
       </div>
 
       {/* Filters Section */}
-      <div className="flex-1 min-h-0 pt-4">
+      <div className="flex-1 min-h-0 pt-2">
         <div className="flex h-full flex-col gap-4">
-          <section className="flex min-h-[220px] flex-1 flex-col overflow-hidden">
+          <section className="flex flex-1 flex-col overflow-hidden">
             <button
               onClick={() => setFiltersOpen((prev) => !prev)}
               className="mb-4 flex w-full items-center justify-between px-2 text-xs uppercase tracking-wider text-gray-500 transition-colors hover:text-gray-300"
@@ -104,7 +123,9 @@ export function Sidebar() {
           </section>
 
           {/* Ad Card */}
-          <AdCard />
+          <div className="mt-4">
+            <AdCard />
+          </div>
         </div>
       </div>
 

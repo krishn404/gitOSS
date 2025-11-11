@@ -30,7 +30,7 @@ export default function SignInPage() {
               <GitBranch className="w-6 h-6 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-2xl">OSS Finder</CardTitle>
+          <CardTitle className="text-2xl">GitOSS</CardTitle>
           <CardDescription>Sign in to discover and explore amazing open-source projects</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
