@@ -1,9 +1,9 @@
 # gitOSS
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Vercel](https://vercel.com/button)](https://git-oss-alpha.vercel.app/)
+[![Vercel](https://vercel.com/button)](https://gitoss.krishnx.tech/)
 [![GitHub Repo](https://img.shields.io/badge/GitHub-Repo-blue.svg)](https://github.com/krishn404/gitOSS)
-[![Made with Love](https://img.shields.io/badge/Made%20with-%E2%9D%A4-red.svg)](https://github.com/krishn404)
+[![Sponsor This](https://img.shields.io/badge/Made%20with-%E2%9D%A4-red.svg)](https://github.com/sponsors/krishn404)
 
 **gitOSS** is a web application designed to help you discover, explore, and contribute to open-source GitHub repositories. It provides a user-friendly interface to search, filter, and sort repositories based on various criteria, making it easier to find projects that align with your interests and skills.
 
@@ -20,7 +20,7 @@
 - **Framework:** [Next.js](https://nextjs.org/)
 - **Styling:** [Tailwind CSS](https://tailwindcss.com/)
 - **UI Components:** [Radix UI](https://www.radix-ui.com/) and [Lucide React](https://lucide.dev/)
-- **Authentication:** [Clerk](https://clerk.com/)
+- **Authentication:** [NextAuth]
 - **GitHub Integration:** [Octokit](https://github.com/octokit/rest.js)
 - **Deployment:** [Vercel](https://vercel.com/)
 
