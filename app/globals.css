@@ -29,6 +29,10 @@
     --offset: 10px;
     --slide-up-fade: slide-up-fade 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     --fade-in: fade-in 0.2s ease-in-out forwards;
+
+    /* Landing page font variables (from new design) */
+    --font-inter: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-instrument-serif: "Instrument Serif", ui-serif, serif;
   }
 
   .dark {
@@ -61,7 +65,7 @@
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
@@ -254,6 +258,43 @@
 
 .theme-icon {
   color: hsl(var(--primary));
+}
+
+/* ==== Landing page specific helpers from new design system ==== */
+
+/* Text wrapping utilities */
+.text-balance {
+  text-wrap: balance;
+}
+
+.text-pretty {
+  text-wrap: pretty;
+}
+
+/* Font utility classes */
+.font-inter {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.font-instrument-serif {
+  font-family: var(--font-instrument-serif), ui-serif, serif;
+}
+
+/* Added explicit font loading optimization */
+@supports (font-display: swap) {
+  @font-face {
+    font-family: "Instrument Serif";
+    font-display: swap;
+  }
+}
+
+/* Visual helpers used in landing layout */
+.mix-blend-multiply {
+  mix-blend-mode: multiply;
+}
+
+.backdrop-blur-custom {
+  backdrop-filter: blur(8.25px);
 }
 
 /* Dark theme overrides */

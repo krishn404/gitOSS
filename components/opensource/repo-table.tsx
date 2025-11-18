@@ -61,25 +61,75 @@ export function RepoTable({
   repositories,
   loading,
   showRank = false,
+  variant = "default",
 }: {
   repositories: Repository[]
   loading: boolean
   showRank?: boolean
+  variant?: "default" | "landing"
 }) {
+  const isLanding = variant === "landing"
+
   return (
-    <div className="rounded-xl bg-white/5 backdrop-blur-xl border border-white/10 overflow-hidden">
+    <div
+      className={
+        isLanding
+          ? "rounded-xl bg-white border border-[#e5e5e5] overflow-hidden"
+          : "rounded-xl bg-white/5 backdrop-blur-xl border border-white/10 overflow-hidden"
+      }
+    >
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-white/10">
-              <th className="text-left p-3 md:p-4 font-medium text-gray-400 text-xs md:text-sm">Repository</th>
-              <th className="text-left p-3 md:p-4 font-medium text-gray-400 text-xs md:text-sm">
+            <tr className={isLanding ? "border-b border-[#e5e5e5] bg-[#f9f9f9]" : "border-b border-white/10"}>
+              <th
+                className={
+                  "text-left p-3 md:p-4 font-medium text-xs md:text-sm " +
+                  (isLanding ? "text-[#303030]" : "text-gray-400")
+                }
+              >
+                Repository
+              </th>
+              <th
+                className={
+                  "text-left p-3 md:p-4 font-medium text-xs md:text-sm " +
+                  (isLanding ? "text-[#303030]" : "text-gray-400")
+                }
+              >
                 {showRank ? "Rank" : "Language"}
               </th>
-              <th className="hidden lg:table-cell text-left p-4 font-medium text-gray-400 text-sm">Tags</th>
-              <th className="text-right p-3 md:p-4 font-medium text-gray-400 text-xs md:text-sm">Stars</th>
-              <th className="hidden sm:table-cell text-right p-4 font-medium text-gray-400 text-sm">Forks</th>
-              <th className="hidden xl:table-cell text-left p-4 font-medium text-gray-400 text-sm">Popularity</th>
+              <th
+                className={
+                  "hidden lg:table-cell text-left p-4 font-medium text-sm " +
+                  (isLanding ? "text-[#303030]" : "text-gray-400")
+                }
+              >
+                Tags
+              </th>
+              <th
+                className={
+                  "text-right p-3 md:p-4 font-medium text-xs md:text-sm " +
+                  (isLanding ? "text-[#303030]" : "text-gray-400")
+                }
+              >
+                Stars
+              </th>
+              <th
+                className={
+                  "hidden sm:table-cell text-right p-4 font-medium text-sm " +
+                  (isLanding ? "text-[#303030]" : "text-gray-400")
+                }
+              >
+                Forks
+              </th>
+              <th
+                className={
+                  "hidden xl:table-cell text-left p-4 font-medium text-sm " +
+                  (isLanding ? "text-[#303030]" : "text-gray-400")
+                }
+              >
+                Popularity
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -118,7 +168,14 @@ export function RepoTable({
             ) : (
               <TooltipProvider>
                 {repositories.map((repo, index) => (
-                  <tr key={repo.id} className="border-b border-white/5 hover:bg-white/5 transition-all duration-200">
+                  <tr
+                    key={repo.id}
+                    className={
+                      isLanding
+                        ? "border-b border-[#f0f0f0] hover:bg-[#fafafa] transition-all duration-200"
+                        : "border-b border-white/5 hover:bg-white/5 transition-all duration-200"
+                    }
+                  >
                     <td className="p-3 md:p-4 relative">
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -128,7 +185,12 @@ export function RepoTable({
                             rel="noopener noreferrer"
                             className="flex items-center space-x-3 group cursor-pointer"
                           >
-                            <Avatar className="w-8 h-8 ring-1 ring-white/10 transition-all duration-200 group-hover:ring-2 group-hover:ring-primary/40 group-hover:scale-110">
+                            <Avatar
+                              className={
+                                "w-8 h-8 ring-1 transition-all duration-200 group-hover:ring-2 group-hover:scale-110 " +
+                                (isLanding ? "ring-[#d0d0d0] group-hover:ring-[#a0a0a0]" : "ring-white/10 group-hover:ring-primary/40")
+                              }
+                            >
                               <AvatarImage
                                 src={
                                   repo.owner.avatar_url ||
@@ -138,15 +200,31 @@ export function RepoTable({
                                 alt={`${repo.owner.login} avatar`}
                                 className="object-cover"
                               />
-                              <AvatarFallback className="bg-white/10 text-white text-sm font-medium">
+                              <AvatarFallback
+                                className={
+                                  "text-sm font-medium " +
+                                  (isLanding ? "bg-[#e5e5e5] text-[#1a1a1a]" : "bg-white/10 text-white")
+                                }
+                              >
                                 {repo.owner.login.charAt(0).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <div className="font-medium text-white group-hover:text-primary transition-colors duration-200">
+                              <div
+                                className={
+                                  "font-medium transition-colors duration-200 " +
+                                  (isLanding ? "text-[#1a1a1a] group-hover:text-[#303030]" : "text-white group-hover:text-primary")
+                                }
+                              >
                                 {repo.name}
                               </div>
-                              <div className="text-sm text-gray-500">{repo.owner.login}</div>
+                              <div
+                                className={
+                                  "text-sm " + (isLanding ? "text-[#707070]" : "text-gray-500")
+                                }
+                              >
+                                {repo.owner.login}
+                              </div>
                             </div>
                           </a>
                         </TooltipTrigger>
@@ -193,7 +271,12 @@ export function RepoTable({
                         {repo.topics?.slice(0, 3).map((topic) => (
                           <Badge
                             key={topic}
-                            className="bg-white/5 text-gray-400 border border-white/10 text-xs font-normal hover:bg-white/10 transition-colors"
+                            className={
+                              "text-xs font-normal transition-colors " +
+                              (isLanding
+                                ? "bg-[#a0a0a0] text-[#1a1a1a] border border-[#a0a0a0] hover:bg-[#b5b5b5]"
+                                : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10")
+                            }
                           >
                             {topic}
                           </Badge>
@@ -201,10 +284,22 @@ export function RepoTable({
                       </div>
                     </td>
                     <td className="p-3 md:p-4 text-right">
-                      <span className="text-white font-medium">{formatNumber(repo.stargazers_count)}</span>
+                      <span
+                        className={
+                          "font-medium " + (isLanding ? "text-[#1a1a1a]" : "text-white")
+                        }
+                      >
+                        {formatNumber(repo.stargazers_count)}
+                      </span>
                     </td>
                     <td className="hidden sm:table-cell p-4 text-right">
-                      <span className="text-gray-400 font-medium">{formatNumber(repo.forks_count)}</span>
+                      <span
+                        className={
+                          "font-medium " + (isLanding ? "text-[#707070]" : "text-gray-400")
+                        }
+                      >
+                        {formatNumber(repo.forks_count)}
+                      </span>
                     </td>
                     <td className="hidden xl:table-cell p-4">
                       <PopularityBadge stars={repo.stargazers_count} index={index} />
