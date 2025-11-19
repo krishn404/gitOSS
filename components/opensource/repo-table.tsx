@@ -74,18 +74,18 @@ export function RepoTable({
     <div
       className={
         isLanding
-          ? "rounded-xl bg-white border border-[#e5e5e5] overflow-hidden"
+          ? "rounded-xl bg-[#1a1a1a] border border-[rgba(255,255,255,0.08)] overflow-hidden"
           : "rounded-xl bg-white/5 backdrop-blur-xl border border-white/10 overflow-hidden"
       }
     >
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className={isLanding ? "border-b border-[#e5e5e5] bg-[#f9f9f9]" : "border-b border-white/10"}>
+            <tr className={isLanding ? "border-b border-[rgba(255,255,255,0.08)] bg-[#0a0a0a]" : "border-b border-white/10"}>
               <th
                 className={
                   "text-left p-3 md:p-4 font-medium text-xs md:text-sm " +
-                  (isLanding ? "text-[#303030]" : "text-gray-400")
+                  (isLanding ? "text-[#a0a0a0]" : "text-gray-400")
                 }
               >
                 Repository
@@ -93,7 +93,7 @@ export function RepoTable({
               <th
                 className={
                   "text-left p-3 md:p-4 font-medium text-xs md:text-sm " +
-                  (isLanding ? "text-[#303030]" : "text-gray-400")
+                  (isLanding ? "text-[#a0a0a0]" : "text-gray-400")
                 }
               >
                 {showRank ? "Rank" : "Language"}
@@ -101,7 +101,7 @@ export function RepoTable({
               <th
                 className={
                   "hidden lg:table-cell text-left p-4 font-medium text-sm " +
-                  (isLanding ? "text-[#303030]" : "text-gray-400")
+                  (isLanding ? "text-[#a0a0a0]" : "text-gray-400")
                 }
               >
                 Tags
@@ -109,7 +109,7 @@ export function RepoTable({
               <th
                 className={
                   "text-right p-3 md:p-4 font-medium text-xs md:text-sm " +
-                  (isLanding ? "text-[#303030]" : "text-gray-400")
+                  (isLanding ? "text-[#a0a0a0]" : "text-gray-400")
                 }
               >
                 Stars
@@ -117,7 +117,7 @@ export function RepoTable({
               <th
                 className={
                   "hidden sm:table-cell text-right p-4 font-medium text-sm " +
-                  (isLanding ? "text-[#303030]" : "text-gray-400")
+                  (isLanding ? "text-[#a0a0a0]" : "text-gray-400")
                 }
               >
                 Forks
@@ -125,7 +125,7 @@ export function RepoTable({
               <th
                 className={
                   "hidden xl:table-cell text-left p-4 font-medium text-sm " +
-                  (isLanding ? "text-[#303030]" : "text-gray-400")
+                  (isLanding ? "text-[#a0a0a0]" : "text-gray-400")
                 }
               >
                 Popularity
@@ -172,7 +172,7 @@ export function RepoTable({
                     key={repo.id}
                     className={
                       isLanding
-                        ? "border-b border-[#f0f0f0] hover:bg-[#fafafa] transition-all duration-200"
+                        ? "border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.02)] transition-all duration-200"
                         : "border-b border-white/5 hover:bg-white/5 transition-all duration-200"
                     }
                   >
@@ -188,7 +188,7 @@ export function RepoTable({
                             <Avatar
                               className={
                                 "w-8 h-8 ring-1 transition-all duration-200 group-hover:ring-2 group-hover:scale-110 " +
-                                (isLanding ? "ring-[#d0d0d0] group-hover:ring-[#a0a0a0]" : "ring-white/10 group-hover:ring-primary/40")
+                                (isLanding ? "ring-[rgba(255,255,255,0.2)] group-hover:ring-[#a0a0a0]" : "ring-white/10 group-hover:ring-primary/40")
                               }
                             >
                               <AvatarImage
@@ -203,7 +203,7 @@ export function RepoTable({
                               <AvatarFallback
                                 className={
                                   "text-sm font-medium " +
-                                  (isLanding ? "bg-[#e5e5e5] text-[#1a1a1a]" : "bg-white/10 text-white")
+                                  (isLanding ? "bg-[#404040] text-[#d9d9d9]" : "bg-white/10 text-white")
                                 }
                               >
                                 {repo.owner.login.charAt(0).toUpperCase()}
@@ -213,14 +213,14 @@ export function RepoTable({
                               <div
                                 className={
                                   "font-medium transition-colors duration-200 " +
-                                  (isLanding ? "text-[#1a1a1a] group-hover:text-[#303030]" : "text-white group-hover:text-primary")
+                                  (isLanding ? "text-[#d9d9d9] group-hover:text-[#ffffff]" : "text-white group-hover:text-primary")
                                 }
                               >
                                 {repo.name}
                               </div>
                               <div
                                 className={
-                                  "text-sm " + (isLanding ? "text-[#707070]" : "text-gray-500")
+                                  "text-sm " + (isLanding ? "text-[#a0a0a0]" : "text-gray-500")
                                 }
                               >
                                 {repo.owner.login}
@@ -274,7 +274,7 @@ export function RepoTable({
                             className={
                               "text-xs font-normal transition-colors " +
                               (isLanding
-                                ? "bg-[#a0a0a0] text-[#1a1a1a] border border-[#a0a0a0] hover:bg-[#b5b5b5]"
+                                ? "bg-[#404040] text-[#d9d9d9] border border-[rgba(255,255,255,0.1)] hover:bg-[#505050]"
                                 : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10")
                             }
                           >
@@ -286,7 +286,7 @@ export function RepoTable({
                     <td className="p-3 md:p-4 text-right">
                       <span
                         className={
-                          "font-medium " + (isLanding ? "text-[#1a1a1a]" : "text-white")
+                          "font-medium " + (isLanding ? "text-[#d9d9d9]" : "text-white")
                         }
                       >
                         {formatNumber(repo.stargazers_count)}
@@ -295,7 +295,7 @@ export function RepoTable({
                     <td className="hidden sm:table-cell p-4 text-right">
                       <span
                         className={
-                          "font-medium " + (isLanding ? "text-[#707070]" : "text-gray-400")
+                          "font-medium " + (isLanding ? "text-[#a0a0a0]" : "text-gray-400")
                         }
                       >
                         {formatNumber(repo.forks_count)}

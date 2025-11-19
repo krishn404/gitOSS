@@ -26,25 +26,25 @@ const YourWorkInSync: React.FC<YourWorkInSyncProps> = ({
   const themeVars =
     theme === "light"
       ? {
-          "--yws-surface": "#ffffff",
-          "--yws-text-primary": "#37322f",
-          "--yws-text-secondary": "#6b7280",
-          "--yws-bubble-light": "#e8e5e3",
-          "--yws-bubble-dark": "#37322f",
-          "--yws-bubble-white": "#ffffff",
-          "--yws-border": "rgba(0,0,0,0.08)",
-          "--yws-shadow": "rgba(0,0,0,0.08)",
-        }
+        "--yws-surface": "#ffffff",
+        "--yws-text-primary": "#37322f",
+        "--yws-text-secondary": "#6b7280",
+        "--yws-bubble-light": "#e8e5e3",
+        "--yws-bubble-dark": "#37322f",
+        "--yws-bubble-white": "#ffffff",
+        "--yws-border": "rgba(0,0,0,0.08)",
+        "--yws-shadow": "rgba(0,0,0,0.08)",
+      }
       : ({
-          "--yws-surface": "#1f2937",
-          "--yws-text-primary": "#f9fafb",
-          "--yws-text-secondary": "#d1d5db",
-          "--yws-bubble-light": "#374151",
-          "--yws-bubble-dark": "#111827",
-          "--yws-bubble-white": "#ffffff",
-          "--yws-border": "rgba(255,255,255,0.12)",
-          "--yws-shadow": "rgba(0,0,0,0.24)",
-        } as React.CSSProperties)
+        "--yws-surface": "#1a1a1a",
+        "--yws-text-primary": "#d9d9d9",
+        "--yws-text-secondary": "#a0a0a0",
+        "--yws-bubble-light": "#303030",
+        "--yws-bubble-dark": "#404040",
+        "--yws-bubble-white": "#d9d9d9",
+        "--yws-border": "rgba(255,255,255,0.1)",
+        "--yws-shadow": "rgba(0,0,0,0.3)",
+      } as React.CSSProperties)
 
   // Figma-exported assets
   const imgFrame2147223205 = "/professional-woman-avatar-with-short-brown-hair-an.jpg"
@@ -257,7 +257,7 @@ const YourWorkInSync: React.FC<YourWorkInSyncProps> = ({
             {/* Message bubble */}
             <div
               style={{
-                background: "#ffffff",
+                background: "var(--yws-bubble-light)",
                 borderRadius: "16px",
                 padding: "0px 12px",
                 height: "36px",
@@ -274,7 +274,7 @@ const YourWorkInSync: React.FC<YourWorkInSyncProps> = ({
                   fontWeight: 400,
                   fontSize: "14px",
                   lineHeight: "20px",
-                  color: "#030712",
+                  color: "var(--yws-text-primary)",
                   whiteSpace: "nowrap",
                 }}
               >
