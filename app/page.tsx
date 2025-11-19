@@ -156,7 +156,7 @@ export default function LandingPage() {
             <div className="pt-16 sm:pt-20 md:pt-24 lg:pt-[216px] pb-8 sm:pb-12 md:pb-16 flex flex-col justify-start items-center px-2 sm:px-4 md:px-8 lg:px-0 w-full sm:pl-0 sm:pr-0 pl-0 pr-0 relative">
               {/* Gradient Blob - Left (Warm Orange/Peach) */}
               <div
-                className="absolute left-[-200px] top-[300px] w-[500px] h-[500px] rounded-full opacity-50 blur-[100px] pointer-events-none z-0"
+                className="absolute left-[-200px] top-[300px] w-[600px] h-[600px] rounded-full opacity-50 blur-[100px] pointer-events-none z-0 animate-float-slow"
                 style={{
                   background: 'radial-gradient(circle, rgba(255,179,102,0.8) 0%, rgba(255,138,101,0.6) 40%, transparent 70%)'
                 }}
@@ -164,7 +164,7 @@ export default function LandingPage() {
 
               {/* Gradient Blob - Right (Cool Cyan/Blue) */}
               <div
-                className="absolute right-[-200px] top-[350px] w-[550px] h-[550px] rounded-full opacity-45 blur-[100px] pointer-events-none z-0"
+                className="absolute right-[-200px] top-[350px] w-[650px] h-[650px] rounded-full opacity-45 blur-[100px] pointer-events-none z-0 animate-float-slower"
                 style={{
                   background: 'radial-gradient(circle, rgba(102,217,255,0.7) 0%, rgba(101,178,255,0.5) 40%, transparent 70%)'
                 }}
