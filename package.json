@@ -45,6 +45,8 @@
     "@radix-ui/react-toggle": "latest",
     "@radix-ui/react-toggle-group": "latest",
     "@radix-ui/react-tooltip": "latest",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.4.0",
     "@tabler/icons-react": "latest",
     "@tanstack/react-table": "latest",
     "@upstash/redis": "latest",
@@ -65,11 +67,13 @@
     "next-themes": "latest",
     "nodemailer": "latest",
     "octokit": "^3.1.0",
+    "ogl": "^1.0.11",
+    "postprocessing": "^6.38.0",
     "react": "^19",
     "react-day-picker": "latest",
     "react-dom": "^19",
     "react-hook-form": "latest",
-    "react-icons": "latest",
+    "react-icons": "^5.5.0",
     "react-markdown": "latest",
     "react-resizable-panels": "latest",
     "recharts": "latest",
@@ -80,12 +84,14 @@
     "tailwind-merge": "^2.5.5",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
+    "three": "^0.181.2",
     "vaul": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.181.0",
     "postcss": "^8.5",
     "typescript": "^5"
   }
