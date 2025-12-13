@@ -23,7 +23,7 @@ export default function CTASection() {
           </div>
         </div>
 
-        <div className="w-full max-w-[586px] px-6 py-5 md:py-8 overflow-hidden rounded-lg flex flex-col justify-start items-center gap-6 relative z-20">
+        <div className="w-full max-w-[1200px] px-6 py-5 md:py-8 overflow-hidden rounded-lg flex flex-col justify-start items-center gap-6 relative z-20">
           <div className="self-stretch flex flex-col justify-start items-start gap-3">
             <div className="self-stretch text-center flex justify-center flex-col text-[#d9d9d9] text-3xl md:text-5xl font-semibold leading-tight md:leading-[56px] font-sans tracking-tight">
               Ready to level up your open source?
@@ -34,7 +34,7 @@ export default function CTASection() {
               track what matters, and focus your time where it counts.
             </div>
           </div>
-          <div className="w-full max-w-[497px] flex flex-col justify-center items-center gap-12">
+          <div className="w-full max-w-[600px] flex flex-col justify-center items-center gap-12">
             <div className="flex justify-start items-center gap-4">
               <Link href="/auth/signin">
                 <div className="cursor-pointer h-10 sm:h-11 md:h-12 px-6 sm:px-8 md:px-10 lg:px-12 py-2 sm:py-[6px] relative bg-[#d9d9d9] shadow-[0px_0px_0px_2.5px_rgba(0,0,0,0.1)_inset] overflow-hidden rounded-full flex justify-center items-center">
