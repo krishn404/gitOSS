@@ -12,8 +12,21 @@ function getConvexClient() {
   }
   
   try {
-    const client = new ConvexHttpClient(convexUrl)
-    return client
+    // For server-side API routes with public functions, URL alone should work
+    // If you need authentication, set CONVEX_AUTH_TOKEN (JWT) in environment variables
+    const authToken = process.env.CONVEX_AUTH_TOKEN
+    
+    if (authToken) {
+      // Use auth token if provided (for authenticated server-side calls)
+      const client = new ConvexHttpClient(convexUrl, {
+        auth: authToken,
+      })
+      return client
+    } else {
+      // Use URL directly (works for public functions)
+      const client = new ConvexHttpClient(convexUrl)
+      return client
+    }
   } catch (error: any) {
     console.error("Failed to initialize Convex client:", error?.message || error)
     return null
@@ -183,6 +196,13 @@ export async function POST(request: NextRequest) {
       console.error("NEXT_PUBLIC_CONVEX_URL is not set")
       return NextResponse.json({ error: "Convex URL not configured" }, { status: 500 })
     }
+    
+    // Log auth configuration (for debugging)
+    if (process.env.CONVEX_AUTH_TOKEN) {
+      console.log("Using Convex auth token for authentication")
+    } else {
+      console.log("Using Convex URL without auth (public functions)")
+    }
 
     const convex = getConvexClient()
     if (!convex) {
@@ -206,26 +226,61 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("Attempting to save bookmark:", { userId, repositoryId: repo.id, repositoryName })
+    console.log("Convex URL:", convexUrl ? `${convexUrl.substring(0, 30)}...` : "not set")
+    console.log("Mutation args:", mutationArgs)
 
     // Save bookmark to Convex
     try {
-      const result = await convex.mutation("repositories:saveRepository" as any, mutationArgs)
-      console.log("Bookmark saved successfully:", result?._id || "success")
+      // Verify mutation name matches what's exported
+      const mutationName = "repositories:saveRepository"
+      console.log("Calling Convex mutation:", mutationName)
+      
+      const result = await convex.mutation(mutationName as any, mutationArgs)
+      console.log("Bookmark saved successfully:", result?._id || result || "success")
     } catch (convexError: any) {
-      console.error("Convex mutation error:", {
-        message: convexError?.message,
-        stack: convexError?.stack,
+      // Extract all possible error information
+      let errorString = ""
+      try {
+        errorString = JSON.stringify(convexError, Object.getOwnPropertyNames(convexError), 2)
+      } catch {
+        errorString = String(convexError)
+      }
+      
+      const errorInfo = {
+        message: convexError?.message || String(convexError),
         name: convexError?.name,
-        data: convexError?.data,
+        stack: convexError?.stack,
+        code: convexError?.code,
         statusCode: convexError?.statusCode,
-        mutation: "repositories:saveRepository",
-        args: mutationArgs,
-      })
+        status: convexError?.status,
+        data: convexError?.data,
+        response: convexError?.response,
+        cause: convexError?.cause,
+        toString: convexError?.toString?.(),
+        valueOf: convexError?.valueOf?.(),
+        errorString,
+      }
+      
+      console.error("Convex mutation error (full):", errorInfo)
+      console.error("Convex mutation error (raw):", convexError)
+      console.error("Convex mutation error (type):", typeof convexError)
+      console.error("Convex mutation error (constructor):", convexError?.constructor?.name)
+      
+      // Try to get a meaningful error message
+      const errorMessage = 
+        convexError?.message || 
+        convexError?.data?.message ||
+        convexError?.response?.data?.message ||
+        convexError?.cause?.message ||
+        String(convexError) ||
+        "Unknown Convex error"
+      
       return NextResponse.json(
         {
           error: "Failed to save bookmark to Convex",
-          details: convexError?.message || "Unknown Convex error",
-          statusCode: convexError?.statusCode,
+          details: errorMessage,
+          statusCode: convexError?.statusCode || convexError?.status || convexError?.code,
+          errorType: convexError?.name || typeof convexError,
         },
         { status: 500 }
       )
