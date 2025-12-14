@@ -6,8 +6,18 @@ import { createOctokit } from "@/lib/github"
 
 function getConvexClient() {
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
-  if (!convexUrl) return null
-  return new ConvexHttpClient(convexUrl)
+  if (!convexUrl) {
+    console.warn("NEXT_PUBLIC_CONVEX_URL environment variable is not set")
+    return null
+  }
+  
+  try {
+    const client = new ConvexHttpClient(convexUrl)
+    return client
+  } catch (error: any) {
+    console.error("Failed to initialize Convex client:", error?.message || error)
+    return null
+  }
 }
 
 export async function GET() {
@@ -27,12 +37,29 @@ export async function GET() {
     // Query saved repositories from Convex
     let saved: any[] = []
     try {
+      console.log("Querying Convex for userId:", userId)
       const result = await convex.query("repositories:getSavedRepositories" as any, { userId })
+      console.log("Convex query result:", Array.isArray(result) ? `${result.length} bookmarks` : "non-array result")
       saved = Array.isArray(result) ? result : []
     } catch (convexError: any) {
-      console.error("Convex query error:", convexError)
+      console.error("Convex query error:", {
+        message: convexError?.message,
+        stack: convexError?.stack,
+        name: convexError?.name,
+        statusCode: convexError?.statusCode,
+        data: convexError?.data,
+        userId,
+      })
       // Return empty bookmarks if Convex query fails
-      return NextResponse.json({ bookmarks: [], source: "error" as const }, { status: 500 })
+      return NextResponse.json(
+        { 
+          bookmarks: [], 
+          source: "error" as const,
+          error: convexError?.message || "Convex query failed",
+          statusCode: convexError?.statusCode,
+        }, 
+        { status: 500 }
+      )
     }
 
     // If no saved repositories, return early
@@ -143,35 +170,68 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authConfig)
-  const userId = session?.user?.id as string | undefined
-
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const convex = getConvexClient()
-  if (!convex) {
-    return NextResponse.json({ error: "Convex client unavailable" }, { status: 500 })
-  }
-
-  const body = await request.json()
-  const repo = body?.repository
-
-  if (!repo || typeof repo.id !== "number" || typeof repo.name !== "string" || typeof repo.html_url !== "string") {
-    return NextResponse.json({ error: "Invalid repository payload" }, { status: 400 })
-  }
-
   try {
+    const session = await getServerSession(authConfig)
+    const userId = session?.user?.id as string | undefined
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
+    if (!convexUrl) {
+      console.error("NEXT_PUBLIC_CONVEX_URL is not set")
+      return NextResponse.json({ error: "Convex URL not configured" }, { status: 500 })
+    }
+
+    const convex = getConvexClient()
+    if (!convex) {
+      console.error("Failed to create Convex client. URL:", convexUrl ? "set" : "not set")
+      return NextResponse.json({ error: "Convex client unavailable" }, { status: 500 })
+    }
+
+    const body = await request.json()
+    const repo = body?.repository
+
+    if (!repo || typeof repo.id !== "number" || typeof repo.name !== "string" || typeof repo.html_url !== "string") {
+      return NextResponse.json({ error: "Invalid repository payload" }, { status: 400 })
+    }
+
     const repositoryName = repo.full_name ?? repo.name
-    await convex.mutation("repositories:saveRepository" as any, {
+    const mutationArgs = {
       userId,
       repositoryId: repo.id,
       repositoryName,
       repositoryUrl: repo.html_url,
-    })
+    }
 
-    // Log activity
+    console.log("Attempting to save bookmark:", { userId, repositoryId: repo.id, repositoryName })
+
+    // Save bookmark to Convex
+    try {
+      const result = await convex.mutation("repositories:saveRepository" as any, mutationArgs)
+      console.log("Bookmark saved successfully:", result?._id || "success")
+    } catch (convexError: any) {
+      console.error("Convex mutation error:", {
+        message: convexError?.message,
+        stack: convexError?.stack,
+        name: convexError?.name,
+        data: convexError?.data,
+        statusCode: convexError?.statusCode,
+        mutation: "repositories:saveRepository",
+        args: mutationArgs,
+      })
+      return NextResponse.json(
+        {
+          error: "Failed to save bookmark to Convex",
+          details: convexError?.message || "Unknown Convex error",
+          statusCode: convexError?.statusCode,
+        },
+        { status: 500 }
+      )
+    }
+
+    // Log activity (non-blocking)
     try {
       await convex.mutation("activities:logActivity" as any, {
         userId,
@@ -181,15 +241,25 @@ export async function POST(request: NextRequest) {
           repositoryName,
         },
       })
-    } catch (activityError) {
-      console.error("Failed to log bookmark activity:", activityError)
+    } catch (activityError: any) {
+      console.error("Failed to log bookmark activity (non-blocking):", activityError?.message || activityError)
       // Don't fail the request if activity logging fails
     }
 
     return NextResponse.json({ ok: true })
-  } catch (error) {
-    console.error("Failed to save bookmark:", error)
-    return NextResponse.json({ error: "Failed to save bookmark" }, { status: 500 })
+  } catch (error: any) {
+    console.error("Unexpected error in POST /api/bookmarks:", {
+      message: error?.message,
+      stack: error?.stack,
+      name: error?.name,
+    })
+    return NextResponse.json(
+      {
+        error: "Failed to save bookmark",
+        details: error?.message || "Unknown error",
+      },
+      { status: 500 }
+    )
   }
 }
 
