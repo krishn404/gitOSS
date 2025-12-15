@@ -82,13 +82,15 @@ export default defineSchema({
     image: v.optional(v.string()),
     provider: v.string(), // "github" | "google"
     providerAccountId: v.string(), // Provider's user ID
+    role: v.union(v.literal("user"), v.literal("admin")),
     createdAt: v.number(),
     lastLoginAt: v.number(),
     loginCount: v.number(),
   })
     .index("by_user_id", ["userId"])
     .index("by_email", ["email"])
-    .index("by_provider", ["provider"]),
+    .index("by_provider", ["provider"])
+    .index("by_role", ["role"]),
 
   // User activities log
   userActivities: defineTable({
@@ -109,4 +111,15 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_activity_type", ["activityType"])
     .index("by_timestamp", ["timestamp"]),
+
+  // Staff picked repositories
+  staffPicks: defineTable({
+    repoId: v.number(), // GitHub repository ID
+    reason: v.string(), // Why this repo was picked
+    order: v.number(), // Display order/weight (lower = higher priority)
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_repo_id", ["repoId"])
+    .index("by_order", ["order"]),
 })

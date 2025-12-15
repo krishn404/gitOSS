@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react"
 
-type NavSection = "home" | "trending" | "discover" | "bookmarks"
+type NavSection = "home" | "trending" | "staffPicked" | "bookmarks"
 
 interface OpenSourceViewContextValue {
   activeNav: NavSection

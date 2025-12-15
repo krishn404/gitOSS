@@ -1,6 +1,8 @@
 "use client"
 
 import { useSession, signOut } from "next-auth/react"
+import { useQuery } from "convex/react"
+import { api } from "@/convex/_generated/api"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -10,11 +12,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { LogOut, User, Settings } from "lucide-react"
+import { LogOut, User, Settings, Shield } from "lucide-react"
 import Link from "next/link"
 
 export function UserMenu() {
   const { data: session, status } = useSession()
+  // @ts-ignore - session.user.id is added by NextAuth callback
+  const userId = session?.user?.id as string | undefined
+
+  // Check if user is admin (UI check only, security enforced in backend)
+  const isAdmin = userId ? useQuery(api.users.checkIsAdmin, { userId }) : undefined
 
   if (status === "loading") {
     return (
@@ -69,7 +76,17 @@ export function UserMenu() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-white/10" />
         
-        <DropdownMenuSeparator className="bg-white/10" />
+        {isAdmin && (
+          <>
+            <Link href="/admin">
+              <DropdownMenuItem className="cursor-pointer focus:bg-blue-500/20 focus:text-blue-400 text-gray-300">
+                <Shield className="mr-2 h-4 w-4" />
+                Admin Panel
+              </DropdownMenuItem>
+            </Link>
+            <DropdownMenuSeparator className="bg-white/10" />
+          </>
+        )}
         <DropdownMenuItem
           onClick={handleSignOut}
           className="cursor-pointer focus:bg-red-500/20 focus:text-red-400 text-gray-300"

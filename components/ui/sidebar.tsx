@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronDown, Home, TrendingUp, Compass, Heart, PanelLeftClose, Bookmark } from "lucide-react"
+import { ChevronDown, Home, TrendingUp, Star, Heart, PanelLeftClose, Bookmark } from "lucide-react"
 import { useOpenSourceView } from "@/components/opensource/opensource-context"
 import { AdCard } from "@/components/AdCard"
 
@@ -31,7 +31,7 @@ export function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
   const navItems = [
     { id: "home" as const, label: "Home", icon: Home, href: "/opensource" },
     { id: "trending" as const, label: "Trending", icon: TrendingUp, href: "/opensource" },
-    { id: "discover" as const, label: "Discover", icon: Compass, href: "/opensource" },
+    { id: "staffPicked" as const, label: "Staff Picked", icon: Star, href: "/opensource" },
     { id: "bookmarks" as const, label: "Bookmarks", icon: Bookmark, href: "/opensource/bookmarks" },
   ]
 

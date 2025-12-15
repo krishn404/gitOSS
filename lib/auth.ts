@@ -15,6 +15,7 @@ async function saveUserToConvex(user: any, account: any) {
     const convex = new ConvexHttpClient(convexUrl)
     
     // Save or update user profile
+    // All users default to "user" role - admin promotion must be done manually in Convex
     await convex.mutation("users:createOrUpdateUser" as any, {
       userId: user.id,
       name: user.name ?? undefined,

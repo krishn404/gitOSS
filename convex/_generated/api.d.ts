@@ -9,8 +9,11 @@
  */
 
 import type * as activities from "../activities.js";
+import type * as admin from "../admin.js";
+import type * as migrations from "../migrations.js";
 import type * as preferences from "../preferences.js";
 import type * as repositories from "../repositories.js";
+import type * as staffPicks from "../staffPicks.js";
 import type * as trending from "../trending.js";
 import type * as users from "../users.js";
 
@@ -30,8 +33,11 @@ import type {
  */
 declare const fullApi: ApiFromModules<{
   activities: typeof activities;
+  admin: typeof admin;
+  migrations: typeof migrations;
   preferences: typeof preferences;
   repositories: typeof repositories;
+  staffPicks: typeof staffPicks;
   trending: typeof trending;
   users: typeof users;
 }>;

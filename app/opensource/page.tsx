@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useQuery } from "convex/react"
+import { api } from "@/convex/_generated/api"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search } from "lucide-react"
@@ -37,15 +39,27 @@ export default function OpenSourcePage() {
 
   const { activeNav, selectedLanguages, setSelectedLanguages } = useOpenSourceView()
 
+  const isStaffPickedView = activeNav === "staffPicked"
+
+  // Fetch staff picks from Convex when on staffPicked view
+  const staffPicks = useQuery(
+    api.staffPicks.getPublicStaffPicks,
+    isStaffPickedView ? {} : "skip"
+  )
+
   // Debounced sidebar toggle to prevent rapid clicking
   const toggleSidebar = () => {
     // Placeholder for sidebar toggle logic
   }
 
   useEffect(() => {
-    fetchRepositories()
+    if (activeNav === "staffPicked") {
+      fetchStaffPickedRepositories()
+    } else {
+      fetchRepositories()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, activeNav, trendingPeriod, selectedLanguages])
+  }, [filters, activeNav, trendingPeriod, selectedLanguages, staffPicks])
 
   const fetchRepositories = async () => {
     setLoading(true)
@@ -57,11 +71,11 @@ export default function OpenSourcePage() {
         params.append("trendingPeriod", trendingPeriod)
         params.append("sortBy", "stars")
       } else {
-        // home & discover share base search; discover emphasizes recent activity
+        // home uses base search
         params.append("search", filters.search || "")
         params.append("language", filters.language || "all")
         params.append("minStars", filters.minStars || "any")
-        params.append("sortBy", activeNav === "discover" ? "updated" : filters.sortBy || "stars")
+        params.append("sortBy", filters.sortBy || "stars")
       }
 
       const response = await fetch(`/api/opensource?${params.toString()}`)
@@ -69,6 +83,47 @@ export default function OpenSourcePage() {
       setRepositories(data.repositories || [])
     } catch (error) {
       console.error("Error fetching repositories:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchStaffPickedRepositories = async () => {
+    if (!staffPicks || staffPicks.length === 0) {
+      setRepositories([])
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    try {
+      // Fetch repository details from GitHub for each staff pick
+      const repoPromises = staffPicks.map(async (pick) => {
+        try {
+          const response = await fetch(`/api/repositories/${pick.repoId}`)
+          if (!response.ok) {
+            console.warn(`Failed to fetch repo ${pick.repoId}`)
+            return null
+          }
+          const repo = await response.json()
+          return {
+            ...repo,
+            staffPickReason: pick.reason,
+            staffPickOrder: pick.order,
+          }
+        } catch (error) {
+          console.error(`Error fetching repo ${pick.repoId}:`, error)
+          return null
+        }
+      })
+
+      const repos = (await Promise.all(repoPromises)).filter((repo) => repo !== null) as Repo[]
+      // Sort by staff pick order (already sorted from Convex, but ensure it)
+      repos.sort((a, b) => (a as any).staffPickOrder - (b as any).staffPickOrder)
+      setRepositories(repos)
+    } catch (error) {
+      console.error("Error fetching staff picked repositories:", error)
+      setRepositories([])
     } finally {
       setLoading(false)
     }
@@ -122,7 +177,7 @@ export default function OpenSourcePage() {
   const navItems = [
     { id: "home", label: "Home", icon: null },
     { id: "trending", label: "Trending", icon: null },
-    { id: "discover", label: "Discover", icon: null },
+    { id: "staffPicked", label: "Staff Picked", icon: null },
   ] as const
 
   const handleSaveRepository = async (repo: Repo) => {
@@ -155,7 +210,7 @@ export default function OpenSourcePage() {
                 />
               </div>
 
-              {activeNav !== "trending" && (
+              {activeNav !== "trending" && activeNav !== "staffPicked" && (
                 <>
                   <Select
                     value={filters.language}
@@ -237,12 +292,12 @@ export default function OpenSourcePage() {
         <div className="mb-3 text-sm text-gray-400">
           {activeNav === "home" && <span>Home • Explore and filter repositories</span>}
           {activeNav === "trending" && <span>Trending • Top repositories by {trendingPeriod}</span>}
-          {activeNav === "discover" && <span>Discover • Recently active repositories</span>}
+          {activeNav === "staffPicked" && <span>Staff Picked • Curated repositories by our team</span>}
         </div>
 
         {activeNav === "home" && <HomeSection repositories={repositories} loading={loading} />}
         {activeNav === "trending" && <TrendingSection repositories={repositories} loading={loading} />}
-        {activeNav === "discover" && <DiscoverSection repositories={repositories} loading={loading} />}
+        {activeNav === "staffPicked" && <DiscoverSection repositories={repositories} loading={loading} />}
       </div>
     </div>
   )
