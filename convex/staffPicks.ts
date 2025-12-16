@@ -1,16 +1,22 @@
 import { query } from "./_generated/server"
-import { v } from "convex/values"
 
-// Public read-only query to get all staff picks ordered by weight
+// Public read-only query to get all staff picks
+// Ordered by staffPickedAt (most recent first)
 export const getPublicStaffPicks = query({
   args: {},
   async handler(ctx) {
-    const staffPicks = await ctx.db
-      .query("staffPicks")
-      .withIndex("by_order")
+    const picks = await ctx.db
+      .query("repositories")
+      .withIndex("by_staff_pick", (q) => q.eq("isStaffPicked", true))
+      .order("desc")
       .collect()
 
-    // Sort by order (lower = higher priority)
-    return staffPicks.sort((a, b) => a.order - b.order)
+    return picks.map((repo, idx) => ({
+      repoId: repo.repoId,
+      order: idx,
+      reason: repo.staffPickNote ?? undefined,
+      staffPickBadges: repo.staffPickBadges,
+      staffPickedAt: repo.staffPickedAt,
+    }))
   },
 })

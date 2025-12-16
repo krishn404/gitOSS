@@ -18,6 +18,7 @@ export interface Repository {
   topics: string[]
   html_url: string
   owner: { login: string; avatar_url: string }
+  staffPickBadges?: string[]
 }
 
 function formatNumber(num: number) {
@@ -58,16 +59,26 @@ function PopularityBadge({ stars, index }: { stars: number; index: number }) {
   return <Badge className="bg-purple-500/20 text-purple-400 border border-purple-500/30 font-medium">Famous</Badge>
 }
 
+const TYPE_LABELS: Record<string, string> = {
+  startup: "Startup",
+  bug_bounty: "Bug Bounty",
+  gssoc: "GSSoC",
+  ai: "AI",
+  devtools: "DevTools",
+}
+
 export function RepoTable({
   repositories,
   loading,
   showRank = false,
   variant = "default",
+  showType = false,
 }: {
   repositories: Repository[]
   loading: boolean
   showRank?: boolean
   variant?: "default" | "landing"
+  showType?: boolean
 }) {
   const { isBookmarked, toggleBookmark } = useBookmarks()
   const isLanding = variant === "landing"
@@ -139,7 +150,7 @@ export function RepoTable({
                   (isLanding ? "text-[#a0a0a0]" : "text-gray-400")
                 }
               >
-                Popularity
+                {showType ? "Type" : "Popularity"}
               </th>
               <th
                 className={
@@ -321,7 +332,17 @@ export function RepoTable({
                       </span>
                     </td>
                     <td className="hidden xl:table-cell p-4">
-                      <PopularityBadge stars={repo.stargazers_count} index={index} />
+                      {showType ? (
+                        repo.staffPickBadges?.[0] ? (
+                          <Badge className="text-xs font-medium bg-blue-500/15 text-blue-200 border border-blue-500/30">
+                            {TYPE_LABELS[repo.staffPickBadges[0]] ?? repo.staffPickBadges[0]}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-gray-500">No Type</span>
+                        )
+                      ) : (
+                        <PopularityBadge stars={repo.stargazers_count} index={index} />
+                      )}
                     </td>
                     <td className="p-3 md:p-4 text-right">
                       <button

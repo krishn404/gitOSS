@@ -2,14 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
-import { useMutation, useQuery } from "convex/react"
+import { useMutation, usePaginatedQuery, useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Checkbox } from "@/components/ui/checkbox"
 import { UserMenu } from "@/components/user-menu"
 import { BeamsBackground } from "@/components/opensource/bg-beams"
 import { AdminRepoTable } from "@/components/admin/admin-repo-table"
@@ -28,7 +27,7 @@ const BADGE_OPTIONS = [
 type BadgeValue = (typeof BADGE_OPTIONS)[number]["value"]
 
 type GitHubRepo = Repository & {
-  staffPickBadges?: BadgeValue[]
+  staffPickBadges?: string[]
   isStaffPicked?: boolean
   repoId?: number
 }
@@ -56,116 +55,76 @@ export default function AdminPage() {
   }, [searchTerm])
 
   const [badgeFilter, setBadgeFilter] = useState<BadgeValue | null>(null)
-  const [staffOnly, setStaffOnly] = useState(false)
-  const [sort, setSort] = useState<"stars" | "updated">("stars")
-  const [repositories, setRepositories] = useState<GitHubRepo[]>([])
-  const [loading, setLoading] = useState(true)
-  const [page, setPage] = useState(1)
+  const [sort, setSort] = useState<"staffPickedAt" | "stars">("staffPickedAt")
 
-  // Fetch all staff picks from Convex to merge with GitHub data
-  const staffPicks = useQuery(
-    api.admin.getAllStaffPicks,
-    userId && isAdmin ? { userId } : "skip"
+  const {
+    results = [],
+    status: reposStatus,
+    loadMore,
+    isLoading,
+  } = usePaginatedQuery(
+    api.admin.listStaffPicks,
+    userId && isAdmin
+      ? {
+          userId,
+          search: debouncedSearch || undefined,
+          type: badgeFilter || undefined,
+          sort,
+        }
+      : "skip",
+    { initialNumItems: 40 }
   )
 
   const setStaffPick = useMutation(api.admin.setStaffPick)
 
   const [optimistic, setOptimistic] = useState<Record<number, Partial<{ isStaffPicked: boolean; staffPickBadges: BadgeValue[] }>>>({})
   const [modalRepo, setModalRepo] = useState<GitHubRepo | null>(null)
-  const [modalBadges, setModalBadges] = useState<BadgeValue[]>([])
+  const [modalBadges, setModalBadges] = useState<BadgeValue | null>(null)
   const [modalNote, setModalNote] = useState("")
   const [modalTargetPick, setModalTargetPick] = useState<boolean>(true)
 
-  // Fetch repositories from GitHub API (same as /opensource)
-  useEffect(() => {
-    if (!isAdmin) return
+  const mergedResults = useMemo(() => {
+    return results.map((repo: any) => ({
+      ...repo,
+      ...(optimistic[repo.repoId] ?? {}),
+    })) as any[]
+  }, [results, optimistic])
 
-    const fetchRepos = async () => {
-      setLoading(true)
-      try {
-        const params = new URLSearchParams()
-        if (debouncedSearch) {
-          params.append("search", debouncedSearch)
-        }
-        params.append("sortBy", sort)
-        params.append("language", "all")
-        params.append("minStars", "any")
-
-        const response = await fetch(`/api/opensource?${params.toString()}`)
-        const data = await response.json()
-        let repos: GitHubRepo[] = (data.repositories || []).map((repo: Repository) => ({
-          ...repo,
-          repoId: repo.id,
-        }))
-
-        // Merge with staff pick data from Convex
-        if (staffPicks) {
-          const staffPickMap = new Map(
-            staffPicks.map((sp: any) => [sp.repoId, { badges: sp.staffPickBadges || [], isStaffPicked: true }])
-          )
-          repos = repos.map((repo) => {
-            const staffPick = staffPickMap.get(repo.id)
-            if (staffPick) {
-              return {
-                ...repo,
-                isStaffPicked: true,
-                staffPickBadges: staffPick.badges,
-              }
-            }
-            return repo
-          })
-        }
-
-        // Apply optimistic updates
-        repos = repos.map((repo) => ({
-          ...repo,
-          ...(optimistic[repo.id] ?? {}),
-        }))
-
-        // Filter by staff picks if enabled
-        if (staffOnly) {
-          repos = repos.filter((repo) => repo.isStaffPicked)
-        }
-
-        // Filter by badge if selected
-        if (badgeFilter) {
-          repos = repos.filter((repo) => repo.staffPickBadges?.includes(badgeFilter))
-        }
-
-        // Sort
-        if (sort === "stars") {
-          repos.sort((a, b) => b.stargazers_count - a.stargazers_count)
-        } else if (sort === "updated") {
-          repos.sort((a, b) => {
-            const aDate = new Date((a as any).updated_at || 0).getTime()
-            const bDate = new Date((b as any).updated_at || 0).getTime()
-            return bDate - aDate
-          })
-        }
-
-        setRepositories(repos)
-      } catch (error) {
-        console.error("Error fetching repositories:", error)
-        setRepositories([])
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchRepos()
-  }, [debouncedSearch, sort, staffOnly, badgeFilter, isAdmin, staffPicks, optimistic])
+  const repositories = useMemo(() => {
+    return mergedResults.map((repo: any) => ({
+      id: repo.repoId,
+      name: repo.name,
+      full_name: repo.fullName,
+      description: repo.description || "",
+      language: repo.language || "",
+      stargazers_count: repo.stars ?? 0,
+      forks_count: repo.forks ?? 0,
+      topics: repo.topics || [],
+      html_url: repo.htmlUrl || `https://github.com/${repo.fullName}`,
+      owner: {
+        login: repo.ownerLogin,
+        avatar_url: repo.ownerAvatarUrl || `https://github.com/${repo.ownerLogin}.png`,
+      },
+      staffPickBadges: repo.staffPickBadges,
+      isStaffPicked: repo.isStaffPicked,
+    })) as GitHubRepo[]
+  }, [mergedResults])
 
   const handleOpenModal = (repo: GitHubRepo, nextPicked: boolean) => {
     setModalRepo(repo)
     setModalTargetPick(nextPicked)
-    setModalBadges((repo.staffPickBadges ?? []) as BadgeValue[])
+    setModalBadges((repo.staffPickBadges?.[0] as BadgeValue | undefined) ?? null)
     setModalNote("")
   }
 
   const handleConfirmStaffPick = async () => {
     if (!modalRepo || !userId) return
     const repoId = modalRepo.id
-    const badges: BadgeValue[] = modalTargetPick ? modalBadges : []
+    if (modalTargetPick && !modalBadges) {
+      alert("Please select a Type before marking as staff pick.")
+      return
+    }
+    const badges: BadgeValue[] = modalTargetPick && modalBadges ? [modalBadges] : []
 
     setOptimistic((prev) => ({
       ...prev,
@@ -287,15 +246,7 @@ export default function AdminPage() {
       </header>
 
       <main className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-6">
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card className="border-white/10 bg-[#141414]">
-            <CardHeader className="pb-2">
-              <CardDescription>Total repositories</CardDescription>
-              <CardTitle className="text-3xl">
-                {overview ? overview.totalRepositories : <Loader2 className="h-5 w-5 animate-spin" />}
-              </CardTitle>
-            </CardHeader>
-          </Card>
+        <div className="grid gap-4 md:grid-cols-2">
           <Card className="border-white/10 bg-[#141414]">
             <CardHeader className="pb-2">
               <CardDescription>Staff picks</CardDescription>
@@ -326,10 +277,10 @@ export default function AdminPage() {
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
-                  variant={staffOnly ? "default" : "outline"}
-                  onClick={() => setStaffOnly((prev) => !prev)}
+                  variant={sort === "staffPickedAt" ? "default" : "outline"}
+                  onClick={() => setSort("staffPickedAt")}
                 >
-                  Staff picks only
+                  Sort: Recent
                 </Button>
                 <Button
                   size="sm"
@@ -337,13 +288,6 @@ export default function AdminPage() {
                   onClick={() => setSort("stars")}
                 >
                   Sort: Stars
-                </Button>
-                <Button
-                  size="sm"
-                  variant={sort === "updated" ? "default" : "outline"}
-                  onClick={() => setSort("updated")}
-                >
-                  Sort: Updated
                 </Button>
               </div>
             </CardTitle>
@@ -381,7 +325,7 @@ export default function AdminPage() {
           <CardContent className="space-y-4">
             <AdminRepoTable
               repositories={repositories}
-              loading={loading && repositories.length === 0}
+              loading={isLoading && repositories.length === 0}
               badgeOptions={BADGE_OPTIONS}
               onStaffPickClick={(repo) => {
                 handleOpenModal(repo, !repo.isStaffPicked)
@@ -391,6 +335,16 @@ export default function AdminPage() {
               <div className="text-sm text-gray-500">
                 Showing {repositories.length} repositories
               </div>
+              <Button
+                variant="outline"
+                disabled={!loadMore || reposStatus === "Exhausted" || isLoading}
+                onClick={() => loadMore && loadMore(30)}
+              >
+                {isLoading || reposStatus === "CanLoadMore" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Load more
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -408,27 +362,19 @@ export default function AdminPage() {
           </DialogHeader>
           {modalTargetPick && (
             <div className="space-y-3 py-2">
-              <p className="text-sm text-gray-400">Select badges to apply.</p>
+              <p className="text-sm text-gray-400">Select a Type.</p>
               <div className="grid grid-cols-2 gap-2">
                 {BADGE_OPTIONS.map((badge) => {
-                  const checked = modalBadges.includes(badge.value)
+                  const checked = modalBadges === badge.value
                   return (
-                    <label
+                    <Button
                       key={badge.value}
-                      className="flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 hover:border-white/30 cursor-pointer"
+                      variant={checked ? "default" : "outline"}
+                      className="justify-start"
+                      onClick={() => setModalBadges(badge.value)}
                     >
-                      <Checkbox
-                        checked={checked}
-                        onCheckedChange={(v: boolean) => {
-                          setModalBadges((prev) =>
-                            v
-                              ? [...prev, badge.value]
-                              : prev.filter((b) => b !== badge.value)
-                          )
-                        }}
-                      />
-                      <span className="text-sm">{badge.label}</span>
-                    </label>
+                      {badge.label}
+                    </Button>
                   )
                 })}
               </div>

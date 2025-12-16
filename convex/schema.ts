@@ -10,7 +10,6 @@ const BadgeEnum = v.union(
 )
 
 export default defineSchema({
-  // Cache for GitHub repository searches
   repositoriesCache: defineTable({
     cacheKey: v.string(),
     repositories: v.array(
@@ -29,7 +28,7 @@ export default defineSchema({
           avatar_url: v.string(),
           login: v.string(),
         }),
-      }),
+      })
     ),
     total: v.number(),
     hasMore: v.boolean(),
@@ -42,7 +41,6 @@ export default defineSchema({
     .index("by_cache_key", ["cacheKey"])
     .index("by_expires", ["expiresAt"]),
 
-  // User saved repositories
   savedRepositories: defineTable({
     userId: v.string(),
     repositoryId: v.number(),
@@ -53,7 +51,6 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_repository", ["repositoryId"]),
 
-  // User preferences
   userPreferences: defineTable({
     userId: v.string(),
     preferredLanguages: v.array(v.string()),
@@ -62,7 +59,6 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 
-  // Trending repositories cache
   trendingRepositories: defineTable({
     repositories: v.array(
       v.object({
@@ -73,16 +69,15 @@ export default defineSchema({
         url: v.string(),
         language: v.optional(v.string()),
         stargazers_count: v.number(),
-      }),
+      })
     ),
-    period: v.string(), // "today", "week", "month"
+    period: v.string(),
     createdAt: v.number(),
     expiresAt: v.number(),
   })
     .index("by_period", ["period"])
     .index("by_expires", ["expiresAt"]),
 
-  // Repositories (normalized GitHub data with staff-pick state)
   repositories: defineTable({
     repoId: v.number(),
     name: v.string(),
@@ -98,7 +93,7 @@ export default defineSchema({
     category: v.optional(v.string()),
     createdAt: v.number(),
     pushedAt: v.optional(v.number()),
-    nameOwnerSearch: v.string(), // lowercased name and owner for naive search
+    nameOwnerSearch: v.string(),
     isStaffPicked: v.boolean(),
     staffPickBadges: v.array(BadgeEnum),
     staffPickNote: v.optional(v.string()),
@@ -106,20 +101,19 @@ export default defineSchema({
   })
     .index("by_repo_id", ["repoId"])
     .index("by_isStaffPicked", ["isStaffPicked"])
+    .index("by_staff_pick", ["isStaffPicked", "staffPickedAt"])
     .index("by_category", ["category"])
     .index("by_name_owner_search", ["nameOwnerSearch"])
-    .index("by_staff_picked_at", ["staffPickedAt"])
     .index("by_stars", ["stars"])
     .index("by_created_at", ["createdAt"]),
 
-  // User profiles
   users: defineTable({
-    userId: v.string(), // NextAuth user ID
+    userId: v.string(),
     name: v.optional(v.string()),
     email: v.optional(v.string()),
     image: v.optional(v.string()),
-    provider: v.string(), // "github" | "google"
-    providerAccountId: v.string(), // Provider's user ID
+    provider: v.string(),
+    providerAccountId: v.string(),
     role: v.union(v.literal("user"), v.literal("admin")),
     createdAt: v.number(),
     lastLoginAt: v.number(),
@@ -130,10 +124,9 @@ export default defineSchema({
     .index("by_provider", ["provider"])
     .index("by_role", ["role"]),
 
-  // User activities log
   userActivities: defineTable({
     userId: v.string(),
-    activityType: v.string(), // "login", "bookmark_saved", "bookmark_removed", "search", "repository_view", "preference_updated", etc.
+    activityType: v.string(),
     details: v.optional(
       v.object({
         repositoryId: v.optional(v.number()),
@@ -142,7 +135,7 @@ export default defineSchema({
         language: v.optional(v.string()),
         preferenceType: v.optional(v.string()),
         preferenceValue: v.optional(v.any()),
-      }),
+      })
     ),
     timestamp: v.number(),
   })

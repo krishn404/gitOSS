@@ -110,6 +110,7 @@ export default function OpenSourcePage() {
             ...repo,
             staffPickReason: pick.reason,
             staffPickOrder: pick.order,
+            staffPickBadges: pick.staffPickBadges || [],
           }
         } catch (error) {
           console.error(`Error fetching repo ${pick.repoId}:`, error)
@@ -295,9 +296,9 @@ export default function OpenSourcePage() {
           {activeNav === "staffPicked" && <span>Staff Picked • Curated repositories by our team</span>}
         </div>
 
-        {activeNav === "home" && <HomeSection repositories={repositories} loading={loading} />}
-        {activeNav === "trending" && <TrendingSection repositories={repositories} loading={loading} />}
-        {activeNav === "staffPicked" && <DiscoverSection repositories={repositories} loading={loading} />}
+    {activeNav === "home" && <HomeSection repositories={repositories} loading={loading} />}
+    {activeNav === "trending" && <TrendingSection repositories={repositories} loading={loading} />}
+    {activeNav === "staffPicked" && <DiscoverSection repositories={repositories} loading={loading} showType />}
       </div>
     </div>
   )

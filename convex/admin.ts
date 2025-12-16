@@ -45,25 +45,19 @@ export const getAllStaffPicks = query({
   args: { userId: v.string() },
   async handler(ctx, args) {
     const admin = await getAdminUser(ctx, args.userId)
-    if (!admin) {
-      return []
-    }
+    if (!admin) return []
 
-    try {
-      const staffPicks = await ctx.db
-        .query("repositories")
-        .withIndex("by_isStaffPicked", (q) => q.eq("isStaffPicked", true))
-        .collect()
+    const staffPicks = await ctx.db
+      .query("repositories")
+      .withIndex("by_staff_pick", (q) => q.eq("isStaffPicked", true))
+      .order("desc")
+      .collect()
 
-      return staffPicks.map((repo) => ({
-        repoId: repo.repoId,
-        staffPickBadges: repo.staffPickBadges || [],
-        staffPickedAt: repo.staffPickedAt,
-      }))
-    } catch (error) {
-      console.error("[getAllStaffPicks] Error:", error)
-      return []
-    }
+    return staffPicks.map((repo) => ({
+      repoId: repo.repoId,
+      staffPickBadges: repo.staffPickBadges,
+      staffPickedAt: repo.staffPickedAt,
+    }))
   },
 })
 
@@ -71,110 +65,62 @@ const clampPageSize = (size?: number) =>
   Math.min(Math.max(size ?? 25, 1), 100)
 
 /* -------------------------
-   LIST REPOSITORIES
+   LIST STAFF PICKS (ADMIN)
 -------------------------- */
 
-export const listRepositories = query({
+export const listStaffPicks = query({
   args: {
     userId: v.string(),
     search: v.optional(v.string()),
-    badges: v.optional(v.array(BadgeEnum)),
-    category: v.optional(v.string()),
-    staffPickOnly: v.optional(v.boolean()),
-    sort: v.optional(
-      v.union(
-        v.literal("staffPickedAt"),
-        v.literal("stars"),
-        v.literal("createdAt")
-      )
-    ),
+    type: v.optional(BadgeEnum),
+    sort: v.optional(v.union(v.literal("staffPickedAt"), v.literal("stars"))),
     paginationOpts: paginationOptsValidator,
   },
   async handler(ctx, args) {
-    try {
-      const admin = await getAdminUser(ctx, args.userId)
-      if (!admin) {
-        return {
-          page: [],
-          isDone: true,
-          continueCursor: null,
-        }
-      }
-
-      const badgeFilter = args.badges?.length
-        ? Array.from(new Set(args.badges))
-        : []
-
-      const staffOnly = args.staffPickOnly || badgeFilter.length > 0
-      const searchTerm = args.search?.trim().toLowerCase()
-
-      let queryBuilder = ctx.db.query("repositories")
-
-      if (searchTerm) {
-        const upper = `${searchTerm}\uffff`
-        queryBuilder = queryBuilder.withIndex(
-          "by_name_owner_search",
-          (q) =>
-            q.gte("nameOwnerSearch", searchTerm).lt(upper)
-        )
-      } else if (staffOnly || args.sort === "staffPickedAt") {
-        // Use by_isStaffPicked index when filtering for staff picks
-        // This is more reliable than by_staff_picked_at which requires the field to exist
-        queryBuilder = queryBuilder
-          .withIndex("by_isStaffPicked", (q) => q.eq("isStaffPicked", true))
-      } else if (args.sort === "stars") {
-        queryBuilder = queryBuilder.withIndex("by_stars")
-      } else {
-        queryBuilder = queryBuilder.withIndex("by_created_at")
-      }
-
-      queryBuilder = queryBuilder.order("desc")
-
-      if (args.category) {
-        queryBuilder = queryBuilder.filter((q) =>
-          q.eq(q.field("category"), args.category)
-        )
-      }
-
-      const page = await queryBuilder.paginate({
-        ...args.paginationOpts,
-        numItems: clampPageSize(args.paginationOpts.numItems),
-      })
-
-      // Apply badge filter and search refinement
-      const filtered = page.page.filter((repo) => {
-        // Filter by badges if specified
-        if (
-          badgeFilter.length &&
-          !badgeFilter.every((b) =>
-            repo.staffPickBadges?.includes(b)
-          )
-        )
-          return false
-
-        // Additional search refinement (index already narrowed it)
-        if (searchTerm) {
-          return repo.nameOwnerSearch?.includes(searchTerm)
-        }
-
-        // If staffOnly is true, ensure repo is staff picked
-        if (staffOnly && !repo.isStaffPicked) {
-          return false
-        }
-
-        return true
-      })
-
-      return { ...page, page: filtered }
-    } catch (error) {
-      console.error("[listRepositories] Error:", error)
-      // Return safe empty result on error
-      return {
-        page: [],
-        isDone: true,
-        continueCursor: null,
-      }
+    const admin = await getAdminUser(ctx, args.userId)
+    if (!admin) {
+      return { page: [], isDone: true, continueCursor: null as any }
     }
+
+    const searchTerm = args.search?.trim().toLowerCase()
+
+    const page = searchTerm
+      ? await ctx.db
+          .query("repositories")
+          .withIndex("by_name_owner_search", (q) =>
+            q
+              .gte("nameOwnerSearch", searchTerm)
+              .lt("nameOwnerSearch", `${searchTerm}\uffff`)
+          )
+          .filter((q) => q.eq(q.field("isStaffPicked"), true))
+          .paginate({
+            ...args.paginationOpts,
+            numItems: clampPageSize(args.paginationOpts.numItems),
+          })
+      : await ctx.db
+          .query("repositories")
+          .withIndex("by_staff_pick", (q) => q.eq("isStaffPicked", true))
+          .order("desc")
+          .paginate({
+            ...args.paginationOpts,
+            numItems: clampPageSize(args.paginationOpts.numItems),
+          })
+
+    let filtered = page.page
+
+    if (args.type) {
+      filtered = filtered.filter((repo) =>
+        repo.staffPickBadges.includes(args.type!)
+      )
+    }
+
+    if (args.sort === "stars") {
+      filtered = [...filtered].sort(
+        (a, b) => (b.stars ?? 0) - (a.stars ?? 0)
+      )
+    }
+
+    return { ...page, page: filtered }
   },
 })
 
@@ -189,7 +135,6 @@ export const setStaffPick = mutation({
     badges: v.array(BadgeEnum),
     note: v.optional(v.string()),
     picked: v.boolean(),
-    // Optional: GitHub repo data to create record if it doesn't exist
     repoData: v.optional(
       v.object({
         name: v.string(),
@@ -214,10 +159,10 @@ export const setStaffPick = mutation({
       .withIndex("by_repo_id", (q) => q.eq("repoId", args.repoId))
       .first()
 
-    // Create repo record if it doesn't exist (when fetching from GitHub)
     if (!repo && args.repoData) {
       const now = Date.now()
-      const nameOwnerSearch = `${args.repoData.fullName.toLowerCase()}`
+      const nameOwnerSearch = args.repoData.fullName.toLowerCase()
+
       const id = await ctx.db.insert("repositories", {
         repoId: args.repoId,
         name: args.repoData.name,
@@ -235,11 +180,17 @@ export const setStaffPick = mutation({
         isStaffPicked: false,
         staffPickBadges: [],
       })
+
       repo = await ctx.db.get(id)
     }
 
     if (!repo) {
-      throw new Error("Repository not found. Please provide repoData when creating a new staff pick.")
+      throw new Error("Repository not found.")
+    }
+
+    const selectedBadge = args.badges[0]
+    if (args.picked && !selectedBadge) {
+      throw new Error("A Type must be selected for staff picks.")
     }
 
     if (!args.picked) {
@@ -249,22 +200,20 @@ export const setStaffPick = mutation({
         staffPickNote: undefined,
         staffPickedAt: undefined,
       })
-      return ctx.db.get(repo._id)
+      return
     }
 
     await ctx.db.patch(repo._id, {
       isStaffPicked: true,
-      staffPickBadges: Array.from(new Set(args.badges)),
+      staffPickBadges: [selectedBadge],
       staffPickNote: args.note?.trim(),
       staffPickedAt: Date.now(),
     })
-
-    return ctx.db.get(repo._id)
   },
 })
 
 /* -------------------------
-   GET OVERVIEW (OPTIMIZED)
+   GET OVERVIEW
 -------------------------- */
 
 export const getOverview = query({
@@ -272,79 +221,29 @@ export const getOverview = query({
   async handler(ctx, args) {
     const admin = await getAdminUser(ctx, args.userId)
     if (!admin) {
-      return {
-        totalRepositories: 0,
-        staffPickCount: 0,
-        badgeCounts: {},
+      return { totalRepositories: 0, staffPickCount: 0, badgeCounts: {} }
+    }
+
+    let staffPickCount = 0
+    const badgeCounts: Record<string, number> = {}
+
+    const picks = await ctx.db
+      .query("repositories")
+      .withIndex("by_staff_pick", (q) => q.eq("isStaffPicked", true))
+      .collect()
+
+    staffPickCount = picks.length
+
+    for (const repo of picks) {
+      for (const badge of repo.staffPickBadges) {
+        badgeCounts[badge] = (badgeCounts[badge] ?? 0) + 1
       }
     }
 
-    try {
-      // Count total repositories efficiently using pagination with limit
-      let total = 0
-      let cursor: string | null = null
-      let iterations = 0
-      const maxIterations = 50 // Safety limit to prevent timeouts
-
-      do {
-        const page = await ctx.db
-          .query("repositories")
-          .withIndex("by_created_at")
-          .order("desc")
-          .paginate({ cursor, numItems: 500 })
-
-        total += page.page.length
-        cursor = page.continueCursor ?? null
-        iterations++
-
-        // If we got fewer items than requested, we're done
-        if (page.page.length < 500 || !cursor) {
-          cursor = null
-        }
-      } while (cursor !== null && iterations < maxIterations)
-
-      // Count staff picks and badges efficiently using the staff-picked-at index
-      let staffPicks = 0
-      const badgeTally: Record<string, number> = {}
-      cursor = null
-      iterations = 0
-
-      do {
-        const page = await ctx.db
-          .query("repositories")
-          .withIndex("by_staff_picked_at")
-          .filter((q) => q.eq(q.field("isStaffPicked"), true))
-          .paginate({ cursor, numItems: 500 })
-
-        staffPicks += page.page.length
-
-        for (const repo of page.page) {
-          for (const badge of repo.staffPickBadges ?? []) {
-            badgeTally[badge] = (badgeTally[badge] ?? 0) + 1
-          }
-        }
-
-        cursor = page.continueCursor ?? null
-        iterations++
-
-        if (page.page.length < 500 || !cursor) {
-          cursor = null
-        }
-      } while (cursor !== null && iterations < maxIterations)
-
-      return {
-        totalRepositories: total,
-        staffPickCount: staffPicks,
-        badgeCounts: badgeTally,
-      }
-    } catch (error) {
-      // Return safe defaults on error to prevent UI crashes
-      console.error("[getOverview] Error:", error)
-      return {
-        totalRepositories: 0,
-        staffPickCount: 0,
-        badgeCounts: {},
-      }
+    return {
+      totalRepositories: 0, // intentionally unused
+      staffPickCount,
+      badgeCounts,
     }
   },
 })

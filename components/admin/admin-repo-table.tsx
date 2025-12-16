@@ -44,7 +44,7 @@ export function AdminRepoTable({
 }: {
   repositories: AdminRepository[]
   loading: boolean
-  badgeOptions?: BadgeOption[]
+  badgeOptions?: readonly BadgeOption[]
   onStaffPickClick?: (repo: AdminRepository) => void
 }) {
   return (
@@ -54,8 +54,8 @@ export function AdminRepoTable({
           <thead>
             <tr className="border-b border-white/10" style={{ backgroundColor: "rgba(255, 255, 255, 0.05)" }}>
               <th className="text-left p-3 md:p-4 font-medium text-xs md:text-sm text-gray-400">Repository</th>
+              <th className="text-left p-3 md:p-4 font-medium text-xs md:text-sm text-gray-400">Type</th>
               <th className="text-left p-3 md:p-4 font-medium text-xs md:text-sm text-gray-400">Language</th>
-              <th className="hidden lg:table-cell text-left p-4 font-medium text-sm text-gray-400">Tags</th>
               <th className="text-right p-3 md:p-4 font-medium text-xs md:text-sm text-gray-400">Stars</th>
               <th className="hidden sm:table-cell text-right p-4 font-medium text-sm text-gray-400">Forks</th>
               <th className="text-right p-3 md:p-4 font-medium text-xs md:text-sm text-gray-400">Actions</th>
@@ -75,13 +75,10 @@ export function AdminRepoTable({
                     </div>
                   </td>
                   <td className="p-3 md:p-4">
-                    <Skeleton className="h-6 w-20 rounded-md bg-white/10" />
+                    <Skeleton className="h-6 w-24 rounded-md bg-white/10" />
                   </td>
-                  <td className="hidden lg:table-cell p-4">
-                    <div className="flex space-x-2">
-                      <Skeleton className="h-5 w-16 rounded bg-white/10" />
-                      <Skeleton className="h-5 w-20 rounded bg-white/10" />
-                    </div>
+                  <td className="p-3 md:p-4">
+                    <Skeleton className="h-6 w-20 rounded-md bg-white/10" />
                   </td>
                   <td className="p-3 md:p-4 text-right">
                     <Skeleton className="h-4 w-12 ml-auto bg-white/10" />
@@ -128,27 +125,17 @@ export function AdminRepoTable({
                         ) : null}
                       </Tooltip>
                     </td>
-                    <td className="p-3 md:p-4">{getLanguageBadge(repo.language)}</td>
-                    <td className="hidden lg:table-cell p-4">
-                      <div className="flex flex-wrap gap-1.5">
-                        {repo.isStaffPicked && (
-                          <Badge className="bg-blue-500/20 text-blue-200 border-blue-300/30 text-xs">
-                            <ShieldCheck className="w-3 h-3 mr-1 inline" />
-                            Staff Pick
-                          </Badge>
-                        )}
-                        {repo.staffPickBadges?.map((badge) => (
-                          <Badge key={badge} className="text-xs font-normal bg-blue-500/10 text-blue-300 border-blue-500/30">
-                            {badgeOptions?.find((b) => b.value === badge)?.label || badge}
-                          </Badge>
-                        ))}
-                        {repo.topics?.slice(0, 3).map((topic) => (
-                          <Badge key={topic} className="text-xs font-normal bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10">
-                            {topic}
-                          </Badge>
-                        ))}
-                      </div>
+                    <td className="p-3 md:p-4">
+                      {repo.staffPickBadges?.[0] ? (
+                        <Badge className="bg-blue-500/20 text-blue-200 border-blue-300/30 text-xs">
+                          <ShieldCheck className="w-3 h-3 mr-1 inline" />
+                          {badgeOptions?.find((b) => b.value === repo.staffPickBadges?.[0])?.label || repo.staffPickBadges?.[0]}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-gray-500">No Type</span>
+                      )}
                     </td>
+                    <td className="p-3 md:p-4">{getLanguageBadge(repo.language)}</td>
                     <td className="p-3 md:p-4 text-right">
                       <span className="font-medium text-white">{formatNumber(repo.stargazers_count)}</span>
                     </td>
