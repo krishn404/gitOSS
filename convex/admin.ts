@@ -173,7 +173,7 @@ export const setStaffPick = mutation({
 })
 
 /* -------------------------
-   GET OVERVIEW (FIXED)
+   GET OVERVIEW (OPTIMIZED)
 -------------------------- */
 
 export const getOverview = query({
@@ -188,36 +188,72 @@ export const getOverview = query({
       }
     }
 
-    let total = 0
-    let staffPicks = 0
-    const badgeTally: Record<string, number> = {}
+    try {
+      // Count total repositories efficiently using pagination with limit
+      let total = 0
+      let cursor: string | null = null
+      let iterations = 0
+      const maxIterations = 50 // Safety limit to prevent timeouts
 
-    let cursor: string | null = null
-    do {
-      const page = await ctx.db
-        .query("repositories")
-        .withIndex("by_created_at")
-        .order("desc")
-        .paginate({ cursor, numItems: 200 })
+      do {
+        const page = await ctx.db
+          .query("repositories")
+          .withIndex("by_created_at")
+          .order("desc")
+          .paginate({ cursor, numItems: 500 })
 
-      total += page.page.length
+        total += page.page.length
+        cursor = page.continueCursor ?? null
+        iterations++
 
-      for (const repo of page.page) {
-        if (repo.isStaffPicked === true) {
-          staffPicks++
+        // If we got fewer items than requested, we're done
+        if (page.page.length < 500 || !cursor) {
+          cursor = null
+        }
+      } while (cursor !== null && iterations < maxIterations)
+
+      // Count staff picks and badges efficiently using the staff-picked-at index
+      let staffPicks = 0
+      const badgeTally: Record<string, number> = {}
+      cursor = null
+      iterations = 0
+
+      do {
+        const page = await ctx.db
+          .query("repositories")
+          .withIndex("by_staff_picked_at")
+          .filter((q) => q.eq(q.field("isStaffPicked"), true))
+          .paginate({ cursor, numItems: 500 })
+
+        staffPicks += page.page.length
+
+        for (const repo of page.page) {
           for (const badge of repo.staffPickBadges ?? []) {
             badgeTally[badge] = (badgeTally[badge] ?? 0) + 1
           }
         }
+
+        cursor = page.continueCursor ?? null
+        iterations++
+
+        if (page.page.length < 500 || !cursor) {
+          cursor = null
+        }
+      } while (cursor !== null && iterations < maxIterations)
+
+      return {
+        totalRepositories: total,
+        staffPickCount: staffPicks,
+        badgeCounts: badgeTally,
       }
-
-      cursor = page.continueCursor ?? null
-    } while (cursor)
-
-    return {
-      totalRepositories: total,
-      staffPickCount: staffPicks,
-      badgeCounts: badgeTally,
+    } catch (error) {
+      // Return safe defaults on error to prevent UI crashes
+      console.error("[getOverview] Error:", error)
+      return {
+        totalRepositories: 0,
+        staffPickCount: 0,
+        badgeCounts: {},
+      }
     }
   },
 })
