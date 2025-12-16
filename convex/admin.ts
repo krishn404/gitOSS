@@ -37,6 +37,36 @@ export const checkAdminAccess = query({
   },
 })
 
+/* -------------------------
+   GET ALL STAFF PICKS
+-------------------------- */
+
+export const getAllStaffPicks = query({
+  args: { userId: v.string() },
+  async handler(ctx, args) {
+    const admin = await getAdminUser(ctx, args.userId)
+    if (!admin) {
+      return []
+    }
+
+    try {
+      const staffPicks = await ctx.db
+        .query("repositories")
+        .withIndex("by_isStaffPicked", (q) => q.eq("isStaffPicked", true))
+        .collect()
+
+      return staffPicks.map((repo) => ({
+        repoId: repo.repoId,
+        staffPickBadges: repo.staffPickBadges || [],
+        staffPickedAt: repo.staffPickedAt,
+      }))
+    } catch (error) {
+      console.error("[getAllStaffPicks] Error:", error)
+      return []
+    }
+  },
+})
+
 const clampPageSize = (size?: number) =>
   Math.min(Math.max(size ?? 25, 1), 100)
 
@@ -61,70 +91,90 @@ export const listRepositories = query({
     paginationOpts: paginationOptsValidator,
   },
   async handler(ctx, args) {
-    const admin = await getAdminUser(ctx, args.userId)
-    if (!admin) {
+    try {
+      const admin = await getAdminUser(ctx, args.userId)
+      if (!admin) {
+        return {
+          page: [],
+          isDone: true,
+          continueCursor: null,
+        }
+      }
+
+      const badgeFilter = args.badges?.length
+        ? Array.from(new Set(args.badges))
+        : []
+
+      const staffOnly = args.staffPickOnly || badgeFilter.length > 0
+      const searchTerm = args.search?.trim().toLowerCase()
+
+      let queryBuilder = ctx.db.query("repositories")
+
+      if (searchTerm) {
+        const upper = `${searchTerm}\uffff`
+        queryBuilder = queryBuilder.withIndex(
+          "by_name_owner_search",
+          (q) =>
+            q.gte("nameOwnerSearch", searchTerm).lt(upper)
+        )
+      } else if (staffOnly || args.sort === "staffPickedAt") {
+        // Use by_isStaffPicked index when filtering for staff picks
+        // This is more reliable than by_staff_picked_at which requires the field to exist
+        queryBuilder = queryBuilder
+          .withIndex("by_isStaffPicked", (q) => q.eq("isStaffPicked", true))
+      } else if (args.sort === "stars") {
+        queryBuilder = queryBuilder.withIndex("by_stars")
+      } else {
+        queryBuilder = queryBuilder.withIndex("by_created_at")
+      }
+
+      queryBuilder = queryBuilder.order("desc")
+
+      if (args.category) {
+        queryBuilder = queryBuilder.filter((q) =>
+          q.eq(q.field("category"), args.category)
+        )
+      }
+
+      const page = await queryBuilder.paginate({
+        ...args.paginationOpts,
+        numItems: clampPageSize(args.paginationOpts.numItems),
+      })
+
+      // Apply badge filter and search refinement
+      const filtered = page.page.filter((repo) => {
+        // Filter by badges if specified
+        if (
+          badgeFilter.length &&
+          !badgeFilter.every((b) =>
+            repo.staffPickBadges?.includes(b)
+          )
+        )
+          return false
+
+        // Additional search refinement (index already narrowed it)
+        if (searchTerm) {
+          return repo.nameOwnerSearch?.includes(searchTerm)
+        }
+
+        // If staffOnly is true, ensure repo is staff picked
+        if (staffOnly && !repo.isStaffPicked) {
+          return false
+        }
+
+        return true
+      })
+
+      return { ...page, page: filtered }
+    } catch (error) {
+      console.error("[listRepositories] Error:", error)
+      // Return safe empty result on error
       return {
         page: [],
         isDone: true,
         continueCursor: null,
       }
     }
-
-    const badgeFilter = args.badges?.length
-      ? Array.from(new Set(args.badges))
-      : []
-
-    const staffOnly = args.staffPickOnly || badgeFilter.length > 0
-    const searchTerm = args.search?.trim().toLowerCase()
-
-    let queryBuilder = ctx.db.query("repositories")
-
-    if (searchTerm) {
-      const upper = `${searchTerm}\uffff`
-      queryBuilder = queryBuilder.withIndex(
-        "by_name_owner_search",
-        (q) =>
-          q.gte("nameOwnerSearch", searchTerm).lt(upper)
-      )
-    } else if (staffOnly || args.sort === "staffPickedAt") {
-      queryBuilder = queryBuilder
-        .withIndex("by_staff_picked_at")
-        .filter((q) => q.eq(q.field("isStaffPicked"), true))
-    } else if (args.sort === "stars") {
-      queryBuilder = queryBuilder.withIndex("by_stars")
-    } else {
-      queryBuilder = queryBuilder.withIndex("by_created_at")
-    }
-
-    queryBuilder = queryBuilder.order("desc")
-
-    if (args.category) {
-      queryBuilder = queryBuilder.filter((q) =>
-        q.eq(q.field("category"), args.category)
-      )
-    }
-
-    const page = await queryBuilder.paginate({
-      ...args.paginationOpts,
-      numItems: clampPageSize(args.paginationOpts.numItems),
-    })
-
-    const filtered = page.page.filter((repo) => {
-      if (
-        badgeFilter.length &&
-        !badgeFilter.every((b) =>
-          repo.staffPickBadges?.includes(b)
-        )
-      )
-        return false
-
-      if (searchTerm) {
-        return repo.nameOwnerSearch?.includes(searchTerm)
-      }
-      return true
-    })
-
-    return { ...page, page: filtered }
   },
 })
 
@@ -139,17 +189,58 @@ export const setStaffPick = mutation({
     badges: v.array(BadgeEnum),
     note: v.optional(v.string()),
     picked: v.boolean(),
+    // Optional: GitHub repo data to create record if it doesn't exist
+    repoData: v.optional(
+      v.object({
+        name: v.string(),
+        fullName: v.string(),
+        description: v.optional(v.string()),
+        htmlUrl: v.string(),
+        ownerLogin: v.string(),
+        ownerAvatarUrl: v.optional(v.string()),
+        language: v.optional(v.string()),
+        topics: v.optional(v.array(v.string())),
+        stars: v.number(),
+        forks: v.number(),
+      })
+    ),
   },
   async handler(ctx, args) {
     const admin = await getAdminUser(ctx, args.userId)
     if (!admin) throw new Error("Unauthorized")
 
-    const repo = await ctx.db
+    let repo = await ctx.db
       .query("repositories")
       .withIndex("by_repo_id", (q) => q.eq("repoId", args.repoId))
       .first()
 
-    if (!repo) throw new Error("Repository not found")
+    // Create repo record if it doesn't exist (when fetching from GitHub)
+    if (!repo && args.repoData) {
+      const now = Date.now()
+      const nameOwnerSearch = `${args.repoData.fullName.toLowerCase()}`
+      const id = await ctx.db.insert("repositories", {
+        repoId: args.repoId,
+        name: args.repoData.name,
+        fullName: args.repoData.fullName,
+        description: args.repoData.description,
+        htmlUrl: args.repoData.htmlUrl,
+        ownerLogin: args.repoData.ownerLogin,
+        ownerAvatarUrl: args.repoData.ownerAvatarUrl,
+        language: args.repoData.language,
+        topics: args.repoData.topics,
+        stars: args.repoData.stars,
+        forks: args.repoData.forks,
+        createdAt: now,
+        nameOwnerSearch,
+        isStaffPicked: false,
+        staffPickBadges: [],
+      })
+      repo = await ctx.db.get(id)
+    }
+
+    if (!repo) {
+      throw new Error("Repository not found. Please provide repoData when creating a new staff pick.")
+    }
 
     if (!args.picked) {
       await ctx.db.patch(repo._id, {

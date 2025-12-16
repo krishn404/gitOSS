@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
-import { useMutation, usePaginatedQuery, useQuery } from "convex/react"
+import { useMutation, useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -12,8 +12,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Checkbox } from "@/components/ui/checkbox"
 import { UserMenu } from "@/components/user-menu"
 import { BeamsBackground } from "@/components/opensource/bg-beams"
-import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import { Loader2, Search, ShieldCheck, Star, CheckCircle2 } from "lucide-react"
+import { AdminRepoTable } from "@/components/admin/admin-repo-table"
+import type { Repository } from "@/components/opensource/repo-table"
+import { Loader2, Search, ShieldCheck, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 
 const BADGE_OPTIONS = [
@@ -26,17 +27,10 @@ const BADGE_OPTIONS = [
 
 type BadgeValue = (typeof BADGE_OPTIONS)[number]["value"]
 
-type RepoRow = {
-  repoId: number
-  name: string
-  fullName: string
-  ownerLogin: string
-  stars: number
-  language?: string
-  htmlUrl?: string
-  staffPickBadges: BadgeValue[]
-  isStaffPicked: boolean
-  staffPickedAt?: number
+type GitHubRepo = Repository & {
+  staffPickBadges?: BadgeValue[]
+  isStaffPicked?: boolean
+  repoId?: number
 }
 
 export default function AdminPage() {
@@ -62,61 +56,115 @@ export default function AdminPage() {
   }, [searchTerm])
 
   const [badgeFilter, setBadgeFilter] = useState<BadgeValue | null>(null)
-  const [staffOnly, setStaffOnly] = useState(true)
-  const [sort, setSort] = useState<"staffPickedAt" | "stars" | "createdAt">("staffPickedAt")
+  const [staffOnly, setStaffOnly] = useState(false)
+  const [sort, setSort] = useState<"stars" | "updated">("stars")
+  const [repositories, setRepositories] = useState<GitHubRepo[]>([])
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
 
-  const {
-    results = [],
-    status: reposStatus,
-    loadMore,
-    isLoading,
-  } = usePaginatedQuery(
-    api.admin.listRepositories,
-    userId && isAdmin
-      ? {
-          userId,
-          search: debouncedSearch || undefined,
-          badges: badgeFilter ? [badgeFilter] : undefined,
-          staffPickOnly: staffOnly || undefined,
-          sort,
-        }
-      : "skip",
-    { initialNumItems: 40 }
+  // Fetch all staff picks from Convex to merge with GitHub data
+  const staffPicks = useQuery(
+    api.admin.getAllStaffPicks,
+    userId && isAdmin ? { userId } : "skip"
   )
 
   const setStaffPick = useMutation(api.admin.setStaffPick)
 
-  const [optimistic, setOptimistic] = useState<Record<number, Partial<RepoRow>>>({})
-  const [modalRepo, setModalRepo] = useState<RepoRow | null>(null)
+  const [optimistic, setOptimistic] = useState<Record<number, Partial<{ isStaffPicked: boolean; staffPickBadges: BadgeValue[] }>>>({})
+  const [modalRepo, setModalRepo] = useState<GitHubRepo | null>(null)
   const [modalBadges, setModalBadges] = useState<BadgeValue[]>([])
   const [modalNote, setModalNote] = useState("")
   const [modalTargetPick, setModalTargetPick] = useState<boolean>(true)
 
-  const mergedResults = useMemo(() => {
-    return results.map((repo: any) => ({
-      ...repo,
-      ...(optimistic[repo.repoId] ?? {}),
-    })) as RepoRow[]
-  }, [results, optimistic])
+  // Fetch repositories from GitHub API (same as /opensource)
+  useEffect(() => {
+    if (!isAdmin) return
 
-  const parentRef = useRef<HTMLDivElement | null>(null)
-  const rowVirtualizer = useVirtualizer({
-    count: mergedResults.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 88,
-    overscan: 8,
-  })
+    const fetchRepos = async () => {
+      setLoading(true)
+      try {
+        const params = new URLSearchParams()
+        if (debouncedSearch) {
+          params.append("search", debouncedSearch)
+        }
+        params.append("sortBy", sort)
+        params.append("language", "all")
+        params.append("minStars", "any")
 
-  const handleOpenModal = (repo: RepoRow, nextPicked: boolean) => {
+        const response = await fetch(`/api/opensource?${params.toString()}`)
+        const data = await response.json()
+        let repos: GitHubRepo[] = (data.repositories || []).map((repo: Repository) => ({
+          ...repo,
+          repoId: repo.id,
+        }))
+
+        // Merge with staff pick data from Convex
+        if (staffPicks) {
+          const staffPickMap = new Map(
+            staffPicks.map((sp: any) => [sp.repoId, { badges: sp.staffPickBadges || [], isStaffPicked: true }])
+          )
+          repos = repos.map((repo) => {
+            const staffPick = staffPickMap.get(repo.id)
+            if (staffPick) {
+              return {
+                ...repo,
+                isStaffPicked: true,
+                staffPickBadges: staffPick.badges,
+              }
+            }
+            return repo
+          })
+        }
+
+        // Apply optimistic updates
+        repos = repos.map((repo) => ({
+          ...repo,
+          ...(optimistic[repo.id] ?? {}),
+        }))
+
+        // Filter by staff picks if enabled
+        if (staffOnly) {
+          repos = repos.filter((repo) => repo.isStaffPicked)
+        }
+
+        // Filter by badge if selected
+        if (badgeFilter) {
+          repos = repos.filter((repo) => repo.staffPickBadges?.includes(badgeFilter))
+        }
+
+        // Sort
+        if (sort === "stars") {
+          repos.sort((a, b) => b.stargazers_count - a.stargazers_count)
+        } else if (sort === "updated") {
+          repos.sort((a, b) => {
+            const aDate = new Date((a as any).updated_at || 0).getTime()
+            const bDate = new Date((b as any).updated_at || 0).getTime()
+            return bDate - aDate
+          })
+        }
+
+        setRepositories(repos)
+      } catch (error) {
+        console.error("Error fetching repositories:", error)
+        setRepositories([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchRepos()
+  }, [debouncedSearch, sort, staffOnly, badgeFilter, isAdmin, staffPicks, optimistic])
+
+  const handleOpenModal = (repo: GitHubRepo, nextPicked: boolean) => {
     setModalRepo(repo)
     setModalTargetPick(nextPicked)
-    setModalBadges(repo.staffPickBadges ?? [])
+    setModalBadges((repo.staffPickBadges ?? []) as BadgeValue[])
     setModalNote("")
   }
 
   const handleConfirmStaffPick = async () => {
     if (!modalRepo || !userId) return
-    const repoId = modalRepo.repoId
+    const repoId = modalRepo.id
     const badges: BadgeValue[] = modalTargetPick ? modalBadges : []
 
     setOptimistic((prev) => ({
@@ -124,19 +172,34 @@ export default function AdminPage() {
       [repoId]: {
         isStaffPicked: modalTargetPick,
         staffPickBadges: badges,
-        staffPickedAt: modalTargetPick ? Date.now() : undefined,
       },
     }))
 
     try {
-      const updated = await setStaffPick({
+      await setStaffPick({
         userId,
         repoId,
         badges,
         note: modalNote || undefined,
         picked: modalTargetPick,
+        // Include repo data so Convex can create the record if it doesn't exist
+        repoData: modalTargetPick
+          ? {
+              name: modalRepo.name,
+              fullName: modalRepo.full_name,
+              description: modalRepo.description,
+              htmlUrl: modalRepo.html_url,
+              ownerLogin: modalRepo.owner.login,
+              ownerAvatarUrl: modalRepo.owner.avatar_url,
+              language: modalRepo.language,
+              topics: modalRepo.topics,
+              stars: modalRepo.stargazers_count,
+              forks: modalRepo.forks_count,
+            }
+          : undefined,
       })
-      setOptimistic((prev) => ({ ...prev, [repoId]: updated as Partial<RepoRow> }))
+      // Refresh staff picks to get updated data
+      // The useEffect will re-run and merge the new data
     } catch (error) {
       console.error(error)
       // revert
@@ -270,13 +333,6 @@ export default function AdminPage() {
                 </Button>
                 <Button
                   size="sm"
-                  variant={sort === "staffPickedAt" ? "default" : "outline"}
-                  onClick={() => setSort("staffPickedAt")}
-                >
-                  Sort: Staff Picked
-                </Button>
-                <Button
-                  size="sm"
                   variant={sort === "stars" ? "default" : "outline"}
                   onClick={() => setSort("stars")}
                 >
@@ -284,10 +340,10 @@ export default function AdminPage() {
                 </Button>
                 <Button
                   size="sm"
-                  variant={sort === "createdAt" ? "default" : "outline"}
-                  onClick={() => setSort("createdAt")}
+                  variant={sort === "updated" ? "default" : "outline"}
+                  onClick={() => setSort("updated")}
                 >
-                  Sort: Newest
+                  Sort: Updated
                 </Button>
               </div>
             </CardTitle>
@@ -323,91 +379,18 @@ export default function AdminPage() {
           </CardHeader>
 
           <CardContent className="space-y-4">
-            <div
-              ref={parentRef}
-              className="h-[620px] overflow-auto rounded-lg border border-white/5 bg-black/40"
-            >
-              <div
-                style={{
-                  height: `${rowVirtualizer.getTotalSize()}px`,
-                  position: "relative",
-                }}
-              >
-                {rowVirtualizer.getVirtualItems().map((virtualRow: VirtualItem) => {
-                  const repo = mergedResults[virtualRow.index]
-                  if (!repo) return null
-                  return (
-                    <div
-                      key={repo.repoId}
-                      className="absolute left-0 right-0 px-4"
-                      style={{ transform: `translateY(${virtualRow.start}px)` }}
-                    >
-                      <div className="flex flex-col gap-2 border-b border-white/5 py-4 last:border-b-0 md:flex-row md:items-center md:justify-between">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-white">{repo.fullName}</span>
-                            {repo.isStaffPicked && (
-                              <Badge className="bg-blue-500/20 text-blue-200 border-blue-300/30">
-                                Staff Pick
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-400">
-                            <span className="flex items-center gap-1">
-                              <Star className="h-4 w-4" /> {repo.stars.toLocaleString()}
-                            </span>
-                            {repo.language && (
-                              <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs">
-                                {repo.language}
-                              </span>
-                            )}
-                            {repo.staffPickBadges?.length ? (
-                              repo.staffPickBadges.map((badge) => (
-                                <Badge key={badge} variant="outline" className="text-xs border-white/10">
-                                  {badge}
-                                </Badge>
-                              ))
-                            ) : (
-                              <span className="text-xs text-gray-500">No badges</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleOpenModal(repo, !repo.isStaffPicked)}
-                          >
-                            {repo.isStaffPicked ? "Unmark" : "Mark staff pick"}
-                          </Button>
-                          <Link
-                            href={repo.htmlUrl || `https://github.com/${repo.fullName}`}
-                            target="_blank"
-                            className="text-sm text-blue-300 hover:text-blue-200"
-                          >
-                            View repo
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+            <AdminRepoTable
+              repositories={repositories}
+              loading={loading && repositories.length === 0}
+              badgeOptions={BADGE_OPTIONS}
+              onStaffPickClick={(repo) => {
+                handleOpenModal(repo, !repo.isStaffPicked)
+              }}
+            />
             <div className="flex justify-between items-center">
               <div className="text-sm text-gray-500">
-                Showing {mergedResults.length} repositories
+                Showing {repositories.length} repositories
               </div>
-              <Button
-                variant="outline"
-                disabled={!loadMore || reposStatus === "Exhausted" || isLoading}
-                onClick={() => loadMore && loadMore(30)}
-              >
-                {isLoading || reposStatus === "CanLoadMore" ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                Load more
-              </Button>
             </div>
           </CardContent>
         </Card>
@@ -420,7 +403,7 @@ export default function AdminPage() {
               {modalTargetPick ? "Mark as staff pick" : "Remove staff pick"}
             </DialogTitle>
             <DialogDescription className="text-gray-400">
-              {modalRepo?.fullName}
+              {modalRepo?.full_name}
             </DialogDescription>
           </DialogHeader>
           {modalTargetPick && (
