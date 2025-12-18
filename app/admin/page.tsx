@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
-import { useMutation, usePaginatedQuery, useQuery } from "convex/react"
+import { useMutation, useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -54,24 +54,11 @@ export default function AdminPage() {
 
   const [badgeFilter, setBadgeFilter] = useState<BadgeValue | null>(null)
   const [sort, setSort] = useState<"staffPickedAt" | "stars">("staffPickedAt")
+  const [repositories, setRepositories] = useState<GitHubRepo[]>([])
+  const [isLoading, setIsLoading] = useState(false)
 
-  const {
-    results = [],
-    status: reposStatus,
-    loadMore,
-    isLoading,
-  } = usePaginatedQuery(
-    api.admin.listRepositories,
-    userId && isAdmin
-      ? {
-          userId,
-          search: debouncedSearch || undefined,
-          type: badgeFilter || undefined,
-          sort,
-        }
-      : "skip",
-    { initialNumItems: 40 }
-  )
+  // Public staff picks so we can overlay badges/state on top of the shared repositories dataset
+  const staffPicks = useQuery(api.staffPicks.getPublicStaffPicks, {})
 
   const setStaffPick = useMutation(api.admin.setStaffPick)
 
@@ -81,63 +68,144 @@ export default function AdminPage() {
   const [modalNote, setModalNote] = useState("")
   const [modalTargetPick, setModalTargetPick] = useState<boolean>(true)
 
-  const mergedResults = useMemo(() => {
-    return results.map((repo: any) => ({
-      ...repo,
-      ...(optimistic[repo.repoId] ?? {}),
-    })) as any[]
-  }, [results, optimistic])
+  // Fetch repositories via the shared /api/opensource endpoint (same pipeline as /opensource page)
+  useEffect(() => {
+    if (!userId || !isAdmin) return
 
-  const repositories = useMemo(() => {
-    return mergedResults.map((repo: any) => ({
-      id: repo.repoId,
-      name: repo.name,
-      full_name: repo.fullName,
-      description: repo.description || "",
-      language: repo.language || "",
-      stargazers_count: repo.stars ?? 0,
-      forks_count: repo.forks ?? 0,
-      topics: repo.topics || [],
-      html_url: repo.htmlUrl || `https://github.com/${repo.fullName}`,
-      owner: {
-        login: repo.ownerLogin,
-        avatar_url: repo.ownerAvatarUrl || `https://github.com/${repo.ownerLogin}.png`,
-      },
-      staffPickBadges: repo.staffPickBadges,
-      isStaffPicked: repo.isStaffPicked,
-    })) as GitHubRepo[]
-  }, [mergedResults])
+    const controller = new AbortController()
+    const fetchRepos = async () => {
+      setIsLoading(true)
+      try {
+        // When a badge filter is active, mirror the client staff-picked behavior:
+        // fetch all staff picks from Convex, then hydrate each via /api/repositories/[id]
+        if (badgeFilter) {
+          const allPicks = (staffPicks || []) as any[]
+          const filteredPicks = allPicks.filter((pick) =>
+            (pick.staffPickBadges || []).includes(badgeFilter)
+          )
+
+          if (filteredPicks.length === 0) {
+            setRepositories([])
+            return
+          }
+
+          const repoPromises = filteredPicks.map(async (pick) => {
+            try {
+              const response = await fetch(`/api/repositories/${pick.repoId}`, {
+                signal: controller.signal,
+              })
+              if (!response.ok) {
+                console.warn(`Failed to fetch repo ${pick.repoId}`)
+                return null
+              }
+              const repo = (await response.json()) as Repository
+              return {
+                ...repo,
+                staffPickBadges: pick.staffPickBadges || [],
+                isStaffPicked: true,
+                repoId: repo.id,
+                staffPickOrder: pick.order as number | undefined,
+              } as GitHubRepo & { staffPickOrder?: number }
+            } catch (error) {
+              if ((error as any).name === "AbortError") return null
+              console.error(`Error fetching repo ${pick.repoId}:`, error)
+              return null
+            }
+          })
+
+          const hydrated = (await Promise.all(repoPromises)).filter(
+            (r): r is GitHubRepo & { staffPickOrder?: number } => r !== null
+          )
+
+          // Optional search filter on full_name when using badge view
+          const searchTerm = debouncedSearch.trim()
+          let finalRepos = hydrated
+          if (searchTerm) {
+            const lower = searchTerm.toLowerCase()
+            finalRepos = hydrated.filter((repo) =>
+              repo.full_name.toLowerCase().includes(lower)
+            )
+          }
+
+          // Sort: by stars or by staff pick order (most recent first)
+          if (sort === "stars") {
+            finalRepos = [...finalRepos].sort(
+              (a, b) => (b.stargazers_count ?? 0) - (a.stargazers_count ?? 0)
+            )
+          } else {
+            finalRepos = [...finalRepos].sort(
+              (a, b) => (a.staffPickOrder ?? 0) - (b.staffPickOrder ?? 0)
+            )
+          }
+
+          setRepositories(finalRepos)
+          return
+        }
+
+        // Default view: reuse /api/opensource dataset exactly like the client
+        const params = new URLSearchParams()
+        params.append("search", debouncedSearch || "")
+        params.append("language", "all")
+        params.append("minStars", "any")
+        params.append("sortBy", sort === "stars" ? "stars" : "stars")
+
+        const res = await fetch(`/api/opensource?${params.toString()}`, {
+          signal: controller.signal,
+        })
+        if (!res.ok) {
+          console.error("Failed to fetch repositories for admin:", await res.text())
+          setRepositories([])
+          return
+        }
+
+        const data = await res.json()
+        const base = (data.repositories || []) as Repository[]
+
+        const staffMap = new Map<
+          number,
+          {
+            staffPickBadges?: string[]
+          }
+        >()
+
+        ;(staffPicks || []).forEach((pick: any) => {
+          staffMap.set(pick.repoId, {
+            staffPickBadges: pick.staffPickBadges || [],
+          })
+        })
+
+        const mapped: GitHubRepo[] = base.map((repo) => {
+          const pick = staffMap.get(repo.id)
+          return {
+            ...repo,
+            staffPickBadges: pick?.staffPickBadges ?? [],
+            isStaffPicked: Boolean(pick),
+            repoId: repo.id,
+          }
+        })
+
+        setRepositories(mapped)
+      } catch (error) {
+        if ((error as any).name === "AbortError") return
+        console.error("Error fetching repositories for admin:", error)
+        setRepositories([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchRepos()
+
+    return () => {
+      controller.abort()
+    }
+  }, [userId, isAdmin, debouncedSearch, sort, staffPicks, badgeFilter])
 
   // Client-side filter by badge type (Type) — additive, does not exclude staff picks
   const filteredRepositories = useMemo(() => {
     if (!badgeFilter) return repositories
     return repositories.filter((repo) => (repo.staffPickBadges ?? []).includes(badgeFilter))
   }, [repositories, badgeFilter])
-
-  // Badge counts and staff pick count derived from the same dataset (authoritative repositories table via Convex)
-  const { badgeCounts, staffPickCount } = useMemo(() => {
-    const counts: Record<BadgeValue, number> = {
-      startup: 0,
-      bug_bounty: 0,
-      gssoc: 0,
-      ai: 0,
-      devtools: 0,
-    }
-    let picks = 0
-
-    repositories.forEach((repo) => {
-      if (repo.isStaffPicked) {
-        picks += 1
-        ;(repo.staffPickBadges || []).forEach((badge) => {
-          if (isBadgeValue(badge)) {
-            counts[badge] = (counts[badge] ?? 0) + 1
-          }
-        })
-      }
-    })
-
-    return { badgeCounts: counts, staffPickCount: picks }
-  }, [repositories])
 
   const handleOpenModal = (repo: GitHubRepo, nextPicked: boolean) => {
     setModalRepo(repo)
@@ -278,7 +346,7 @@ export default function AdminPage() {
               <CardDescription>Staff picks</CardDescription>
               <CardTitle className="flex items-center gap-2 text-3xl">
                 <ShieldCheck className="h-5 w-5 text-blue-300" />
-                {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : staffPickCount}
+                {overview ? overview.staffPickCount : <Loader2 className="h-5 w-5 animate-spin" />}
               </CardTitle>
             </CardHeader>
           </Card>
@@ -288,7 +356,7 @@ export default function AdminPage() {
               <CardContent className="flex flex-wrap gap-2 p-0 pt-2">
                 {BADGE_OPTIONS.map((badge) => (
                   <Badge key={badge.value} variant="outline" className="border-white/20 text-xs text-white">
-                    {badge.label}: {badgeCounts[badge.value as BadgeValue] ?? 0}
+                    {badge.label}: {overview?.badgeCounts?.[badge.value] ?? 0}
                   </Badge>
                 ))}
               </CardContent>
