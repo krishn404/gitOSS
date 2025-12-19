@@ -77,14 +77,13 @@ export const metadata: Metadata = {
     title: "reposs - Discover Open Source",
     description:
       "Explore, filter, and review GitHub repositories. Find the right open-source projects to learn from and contribute to.",
-    images: [
-      {
-        url: ogImage,
-        width: 1200,
-        height: 630,
-        alt: "reposs - Discover Open Source",
-      },
-    ],
+    images: [ogImage],
+  },
+
+  // Ensure explicit Twitter tags are always present for all crawlers.
+  other: {
+    "twitter:card": "summary_large_image",
+    "twitter:image": ogImage,
   },
 
   robots: {
