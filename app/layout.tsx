@@ -13,11 +13,15 @@ import Script from "next/script"
 const inter = Inter({ subsets: ["latin"] })
 
 const siteUrl = "https://reposs.xyz"
-// Use the shared OG image in /public so all social platforms (Twitter, WhatsApp, Discord, LinkedIn, etc.)
-// get the same preview when a reposs link is shared. The query param is a build-time
-// version marker to avoid caching mismatches without changing per-request.
-const OG_IMAGE_VERSION = "v1"
-const ogImage = `${siteUrl}/og-image.jpg?${OG_IMAGE_VERSION}`
+
+/**
+ * IMPORTANT:
+ * - og-image.jpg → used for WhatsApp, Discord, LinkedIn, Facebook
+ * - og-twitter.jpg → used ONLY for Twitter to break cache permanently
+ * Both files must exist in /public
+ */
+const ogImage = `${siteUrl}/og-image.jpg`
+const twitterImage = `${siteUrl}/og-twitter.jpg`
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -61,10 +65,9 @@ export const metadata: Metadata = {
     images: [
       {
         url: ogImage,
-        secureUrl: ogImage,
-        type: "image/jpeg",
         width: 1200,
         height: 630,
+        type: "image/jpeg",
         alt: "reposs - Discover Open Source",
       },
     ],
@@ -77,13 +80,20 @@ export const metadata: Metadata = {
     title: "reposs - Discover Open Source",
     description:
       "Explore, filter, and review GitHub repositories. Find the right open-source projects to learn from and contribute to.",
-    images: [ogImage],
+    images: [twitterImage],
   },
 
-  // Ensure explicit Twitter tags are always present for all crawlers.
+  /**
+   * Twitter is extremely strict and sometimes ignores structured metadata.
+   * These tags force-render even for stubborn cached URLs.
+   */
   other: {
     "twitter:card": "summary_large_image",
-    "twitter:image": ogImage,
+    "twitter:title": "reposs - Discover Open Source",
+    "twitter:description":
+      "Explore, filter, and review GitHub repositories. Find the right open-source projects to learn from and contribute to.",
+    "twitter:image": twitterImage,
+    "twitter:image:alt": "reposs - Discover Open Source",
   },
 
   robots: {
