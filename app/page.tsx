@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import { useSession } from "next-auth/react"
@@ -10,6 +8,9 @@ import FAQSection from "@/components/landing/faq-section"
 import CTASection from "@/components/landing/cta-section"
 import FooterSection from "@/components/landing/footer-section"
 import { HomeSection } from "@/components/opensource/home-section"
+import { Badge } from "@/components/ui/badge"
+import { FeatureTile } from "@/components/feature-tile"
+import { GitHubRepoTable } from "@/components/github-repo-table"
 import { DottedGlowBackground } from "@/components/ui/dotted-glow-background"
 import Link from "next/link"
 import {
@@ -33,77 +34,6 @@ type Repo = {
   topics: string[]
   html_url: string
   owner: { login: string; avatar_url: string }
-}
-
-// Reusable Badge Component
-function Badge({ icon, text }: { icon: React.ReactNode; text: string }) {
-  return (
-    <motion.div
-      variants={scaleInSpring}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true }}
-      className="px-[14px] py-[6px] bg-[#303030] shadow-[0px_0px_0px_4px_rgba(0,0,0,0.2)] overflow-hidden rounded-[90px] flex justify-start items-center gap-[8px] border border-[rgba(255,255,255,0.1)] shadow-xs"
-    >
-      <div className="w-[14px] h-[14px] relative overflow-hidden flex items-center justify-center">{icon}</div>
-      <div className="text-center flex justify-center flex-col text-[#d9d9d9] text-xs font-medium leading-3 font-sans">
-        {text}
-      </div>
-    </motion.div>
-  )
-}
-
-function FeatureTile({
-  title,
-  description,
-  badge,
-  accent,
-  className = "",
-  children
-}: {
-  title: string
-  description: string
-  badge?: string
-  accent?: string
-  className?: string
-  children?: React.ReactNode
-}) {
-  return (
-    <motion.div
-      whileHover={{ y: -4, scale: 1.005 }}
-      transition={{ type: "spring", stiffness: 220, damping: 24 }}
-      className={`relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-br from-[#0b0b0d] via-[#0b0b0e] to-[#070708] shadow-[0_24px_60px_rgba(0,0,0,0.45)] backdrop-blur-[6px] ${className}`}
-    >
-      <div className="pointer-events-none absolute inset-0 opacity-70">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_22%,rgba(111,214,255,0.08),transparent_32%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_86%_78%,rgba(255,214,102,0.06),transparent_30%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(140deg,rgba(255,255,255,0.04),transparent_28%,transparent)]" />
-      </div>
-      <div className="relative flex flex-col gap-4 sm:gap-5 p-5 sm:p-6 lg:p-7">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            {badge ? (
-              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-medium text-[#cfd0d3] tracking-tight">
-                {badge}
-              </span>
-            ) : null}
-            <p className="text-[18px] sm:text-[19px] lg:text-[20px] font-semibold text-[#f5f5f5] tracking-tight leading-tight">
-              {title}
-            </p>
-          </div>
-          {accent ? (
-            <span className="text-[11px] font-medium text-[#8ddcff] tracking-wide whitespace-nowrap">
-              {accent}
-            </span>
-          ) : null}
-        </div>
-        <p className="text-sm sm:text-[15px] text-[#a8a8b3] leading-relaxed max-w-[720px]">
-          {description}
-        </p>
-        {children}
-      </div>
-    </motion.div>
-  )
 }
 
 export default function LandingPage() {
@@ -387,198 +317,392 @@ export default function LandingPage() {
               </motion.div>
             </div>
             {/* Feature Section */}
-            <div className="w-full border-t border-b border-[rgba(255,255,255,0.08)] bg-gradient-to-b from-[#0a0a0b] via-[#080808] to-[#060607] relative overflow-hidden">
+            <div className="w-full border-t border-b border-border/50 bg-gradient-to-b from-background via-background to-muted/20 relative overflow-hidden">
               <div
-                className="absolute inset-0 pointer-events-none opacity-90"
+                className="absolute inset-0 pointer-events-none opacity-30"
                 style={{
                   background: `
-                    radial-gradient(circle at 18% 22%, rgba(111, 214, 255, 0.08), transparent 32%),
-                    radial-gradient(circle at 82% 18%, rgba(130, 119, 255, 0.08), transparent 30%),
-                    radial-gradient(circle at 64% 82%, rgba(0, 255, 178, 0.05), transparent 28%)
-                  `
+                    radial-gradient(circle at 20% 20%, oklch(0.65 0.18 200 / 0.2) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 20%, oklch(0.7 0.2 220 / 0.15) 0%, transparent 45%),
+                    radial-gradient(circle at 50% 80%, oklch(0.6 0.16 180 / 0.18) 0%, transparent 40%)
+                  `,
                 }}
               />
 
-              <div className="relative w-full px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 py-12 sm:py-14 md:py-16 lg:py-20 flex justify-center">
-                <div className="w-full max-w-[1180px] flex flex-col gap-8 sm:gap-10 md:gap-12">
-                  <div className="flex flex-col items-center text-center gap-3 sm:gap-4 md:gap-5">
-                    <Badge
-                      icon={
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <rect x="1" y="1" width="10" height="10" rx="2" stroke="#d9d9d9" strokeWidth="1" fill="none" />
-                          <path d="M3 6h6" stroke="#d9d9d9" strokeWidth="1" strokeLinecap="round" />
-                        </svg>
-                      }
-                      text="Features"
-                    />
-                    <div className="text-[#f5f5f5] text-[28px] sm:text-[34px] md:text-[40px] lg:text-[44px] font-semibold leading-[1.1] tracking-tight max-w-[760px]">
-                      Built to simplify open-source discovery
+              <div className="relative w-full px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 py-16 sm:py-20 md:py-24 lg:py-28 flex justify-center">
+                <div className="w-full max-w-[1200px] flex flex-col gap-12 sm:gap-14 md:gap-16">
+                  <div className="flex flex-col items-center text-center gap-4 sm:gap-5 md:gap-6 relative">
+                    <div className="absolute inset-0 flex items-start justify-center pointer-events-none -top-12 sm:-top-16">
+                      <div className="relative">
+                        <div
+                          className="absolute inset-0 blur-3xl opacity-40"
+                          style={{
+                            background: `
+                              radial-gradient(circle at 30% 30%, oklch(0.7 0.2 220 / 0.4) 0%, transparent 60%),
+                              radial-gradient(circle at 70% 50%, oklch(0.65 0.18 180 / 0.35) 0%, transparent 60%),
+                              radial-gradient(circle at 50% 80%, oklch(0.6 0.15 200 / 0.3) 0%, transparent 50%)
+                            `,
+                            width: "400px",
+                            height: "400px",
+                            transform: "translate(-50%, 0)",
+                            left: "50%",
+                          }}
+                        />
+                        <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 mx-auto mb-6">
+                          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/20 via-cyan-500/10 to-blue-500/20 border border-primary/20 backdrop-blur-sm" />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <svg
+                              width="100%"
+                              height="100%"
+                              viewBox="0 0 100 100"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 text-primary"
+                            >
+                              <path
+                                d="M50 10C27.91 10 10 27.91 10 50c0 17.67 11.47 32.65 27.38 37.93 2 .37 2.73-.87 2.73-1.93 0-.95-.03-3.46-.05-6.79-11.13 2.42-13.48-5.37-13.48-5.37-1.82-4.62-4.44-5.85-4.44-5.85-3.63-2.48.27-2.43.27-2.43 4.01.28 6.12 4.12 6.12 4.12 3.57 6.11 9.36 4.35 11.64 3.32.36-2.58 1.4-4.35 2.54-5.35-8.88-1.01-18.22-4.44-18.22-19.76 0-4.36 1.56-7.92 4.12-10.71-.41-1.01-1.79-5.08.39-10.58 0 0 3.36-1.07 11 4.1 3.19-.89 6.61-1.33 10.01-1.35 3.4.02 6.82.46 10.01 1.35 7.64-5.17 11-4.1 11-4.1 2.18 5.5.8 9.57.39 10.58 2.56 2.79 4.12 6.35 4.12 10.71 0 15.36-9.35 18.74-18.26 19.73 1.44 1.24 2.72 3.68 2.72 7.42 0 5.35-.05 9.67-.05 10.98 0 1.07.72 2.32 2.74 1.93C78.54 82.64 90 67.66 90 50c0-22.09-17.91-40-40-40z"
+                                fill="currentColor"
+                                fillOpacity="0.9"
+                              />
+                              <g opacity="0.8">
+                                <circle
+                                  cx="70"
+                                  cy="30"
+                                  r="12"
+                                  stroke="currentColor"
+                                  strokeWidth="3"
+                                  fill="none"
+                                  className="text-cyan-400"
+                                />
+                                <path
+                                  d="M79 39l8 8"
+                                  stroke="currentColor"
+                                  strokeWidth="3"
+                                  strokeLinecap="round"
+                                  className="text-cyan-400"
+                                />
+                              </g>
+                            </svg>
+                          </div>
+                          <div className="absolute inset-0 rounded-2xl border border-primary/30 animate-pulse" />
+                          <div className="absolute -inset-2 rounded-2xl border border-primary/10 animate-pulse delay-150" />
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-[#a0a0a0] text-sm sm:text-base md:text-lg leading-relaxed max-w-[760px]">
-                      Explore GitHub repositories with structured filters, curated signals, and fast navigation that reduce noise and surface relevance.
+
+                    <div className="mt-24 sm:mt-28 md:mt-32" />
+
+                    <Badge
+                      variant="outline"
+                      className="h-7 px-3 gap-2 bg-muted/50 border-border/60 text-muted-foreground hover:bg-muted transition-colors"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 14 14"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="opacity-70"
+                      >
+                        <path d="M7 1L12 4v6l-5 3-5-3V4l5-3z" stroke="currentColor" strokeWidth="1.2" fill="none" />
+                      </svg>
+                      <span className="text-xs font-medium">Features</span>
+                    </Badge>
+                    <h2 className="text-foreground text-[32px] sm:text-[40px] md:text-[48px] lg:text-[56px] font-semibold leading-[1.1] tracking-tight max-w-[860px] text-balance">
+                      Built to simplify open-source discovery
+                    </h2>
+                    <p className="text-muted-foreground text-base sm:text-lg md:text-xl leading-relaxed max-w-[720px] text-pretty">
+                      Explore GitHub repositories with structured filters, curated signals, and fast navigation that reduce
+                      noise and surface relevance.
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-2 gap-4 sm:gap-5 lg:gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 lg:gap-7">
                     <FeatureTile
                       title="Repository discovery"
                       description="Search and browse GitHub repositories using language, stars, topics, and activity to quickly find relevant projects."
-                      className="lg:col-span-6 lg:row-span-1 min-h-[320px]"
+                      className="lg:col-span-7"
                     >
-                      <div className="space-y-4 text-sm text-[#a8a8b3] leading-relaxed">
-                        <div className="rounded-2xl border border-white/5 bg-white/5 px-3 py-2 flex items-center gap-2 text-[13px] text-[#dfe1e6]">
-                          <div className="h-9 flex-1 rounded-xl border border-white/10 bg-[#0f0f12] px-3 flex items-center text-[#a8a8b3]">
-                            Search repositories
+                      <div className="space-y-4">
+                        <div className="rounded-lg border border-border/60 bg-card/80 backdrop-blur-sm px-3 py-2.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shadow-sm">
+                          <div className="h-9 flex-1 rounded-md border border-border bg-background/95 px-3 flex items-center gap-2 text-muted-foreground text-sm">
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 14 14"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="opacity-60"
+                            >
+                              <circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth="1.2" fill="none" />
+                              <path d="M9 9l3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                            </svg>
+                            <span className="opacity-60 text-xs">Search repositories...</span>
                           </div>
-                          <div className="h-9 px-3 rounded-xl border border-white/10 bg-[#11121a] text-[12px] text-[#dfe1e6] flex items-center">
+                          <button className="h-9 px-3.5 rounded-md border border-border bg-card hover:bg-accent transition-colors text-xs font-medium text-foreground flex items-center gap-1.5">
                             All Languages
-                          </div>
-                          <div className="h-9 px-3 rounded-xl border border-white/10 bg-[#11121a] text-[12px] text-[#dfe1e6] flex items-center">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                            </svg>
+                          </button>
+                          <button className="h-9 px-3.5 rounded-md border border-border bg-card hover:bg-accent transition-colors text-xs font-medium text-foreground flex items-center gap-1.5">
                             Most Stars
-                          </div>
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                            </svg>
+                          </button>
                         </div>
-                        <div className="space-y-2 rounded-2xl border border-white/5 bg-[#0d0e12]/80 px-3 py-2">
-                          {["ml-sharp", "agentskills"].map((name) => (
-                            <div key={name} className="flex items-center justify-between gap-3 rounded-xl px-2 py-2 hover:bg-white/5 transition-colors">
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-white/10 border border-white/10" />
-                                <div className="flex flex-col gap-1">
-                                  <span className="text-[#dfe1e6] text-[13px] font-medium">{name}</span>
-                                  <span className="text-xs text-[#a0a0a8]">owner</span>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="px-3 py-1 rounded-full bg-[#0f1115] border border-white/10 text-[12px] text-[#dfe1e6]">Python</span>
-                                <span className="px-3 py-1 rounded-full bg-[#11121a] border border-white/10 text-[12px] text-[#dfe1e6]">Legendary</span>
-                                <div className="w-8 h-8 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-[#dfe1e6]">
-                                  ✕
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <p>Use familiar search, filters, and row structure to keep results stable.</p>
-                      </div>
-                    </FeatureTile>
 
-                    <FeatureTile
-                      title="Fast filtering and exploration"
-                      description="Instant filtering without losing context, designed for rapid comparison across multiple repositories."
-                      className="lg:col-span-6 lg:row-span-1 min-h-[320px]"
-                    >
-                      <div className="space-y-4 text-sm text-[#a8a8b3] leading-relaxed">
-                        <div className="rounded-2xl border border-white/5 bg-[#0d0e12]/80 p-3 space-y-3">
-                          <div className="flex items-center gap-2">
-                            <div className="h-8 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 text-[12px] text-[#a8a8b3] flex items-center">
-                              Inline filter keeps context
-                            </div>
-                            <div className="h-8 px-3 rounded-xl border border-white/10 bg-[#11121a] text-[12px] text-[#dfe1e6] flex items-center">
-                              Apply
-                            </div>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {["Keyboard", "Inline", "Context on"].map((chip) => (
-                              <span key={chip} className="px-3 py-1 rounded-full border border-white/10 bg-white/5 text-[12px] text-[#dfe1e6]">
-                                {chip}
-                              </span>
-                            ))}
-                          </div>
-                          <div className="flex items-center justify-between gap-3 text-[13px] text-[#dfe1e6]">
-                            <span className="inline-flex items-center gap-2">
-                              <span className="w-2 h-2 rounded-full bg-white/20" />
-                              Context preserved
-                            </span>
-                            <div className="w-8 h-8 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-[#dfe1e6]">
-                              ⇄
-                            </div>
-                          </div>
-                        </div>
-                        <p>Filters apply instantly while preserving comparisons side by side.</p>
-                        <p>Consistent spacing and alignment keep every change calm.</p>
+                        <GitHubRepoTable />
+
+                        <p className="text-[13px] text-muted-foreground leading-relaxed">
+                          Instantly browse repositories with unified metadata and familiar GitHub structure.
+                        </p>
                       </div>
                     </FeatureTile>
 
                     <FeatureTile
                       title="Staff-picked curation"
                       description="Highlighted repositories manually selected to surface high-quality, noteworthy, or emerging projects."
-                      className="lg:col-span-4 lg:row-span-1 min-h-[280px]"
+                      className="lg:col-span-5"
                     >
-                      <div className="space-y-4 text-sm text-[#a8a8b3] leading-relaxed">
-                        <div className="rounded-2xl border border-white/5 bg-[#0d0e12]/80 p-3 space-y-2">
-                          {["Readable docs", "Responsive maintainers", "Clear roadmap"].map((item) => (
-                            <div key={item} className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/5 px-3 py-2 text-[13px] text-[#dfe1e6]">
-                              <span className="inline-flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-white/20" />
-                                {item}
-                              </span>
-                              <span className="h-6 px-2 rounded-lg border border-white/10 bg-[#11121a] text-[11px] text-[#cfd0d3] flex items-center">
-                                curated
-                              </span>
+                      <div className="space-y-4">
+                        <div className="rounded-lg border border-border/60 bg-card/80 backdrop-blur-sm overflow-hidden shadow-sm">
+                          <div className="px-3 py-2.5 border-b border-border/40 bg-muted/20">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-foreground">reposs</span>
                             </div>
-                          ))}
+                            <p className="text-[11px] text-muted-foreground mt-0.5">Discover amazing open-source projects</p>
+                          </div>
+
+                          <div className="p-2">
+                            <div className="space-y-1">
+                              {[
+                                { name: "Home", active: false },
+                                { name: "Trending", active: false },
+                                { name: "Staff Picked", active: true },
+                                { name: "Bookmarks", active: false },
+                              ].map((item) => (
+                                <div
+                                  key={item.name}
+                                  className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${
+                                    item.active
+                                      ? "bg-accent text-foreground font-medium"
+                                      : "text-muted-foreground hover:bg-accent/50"
+                                  }`}
+                                >
+                                  <div className="w-4 h-4 rounded bg-muted/60 flex-shrink-0" />
+                                  {item.name}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="px-3 py-2.5 border-t border-border/40 bg-muted/10">
+                            <div className="flex items-start gap-2 p-2.5 rounded-md bg-primary/10 border border-primary/20">
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="text-primary flex-shrink-0 mt-0.5"
+                              >
+                                <path
+                                  d="M8 1l2 5h5l-4 3 2 5-5-3-5 3 2-5-4-3h5l2-5z"
+                                  stroke="currentColor"
+                                  strokeWidth="1.2"
+                                  fill="none"
+                                />
+                              </svg>
+                              <div>
+                                <p className="text-[11px] font-medium text-primary">Curated Selection</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                  Quality projects reviewed by maintainers
+                                </p>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <p>Each pick is reviewed for quality, clarity, and momentum before it’s highlighted.</p>
-                        <p>Selections refresh regularly to keep discoveries feeling current.</p>
+
+                        <p className="text-[13px] text-muted-foreground leading-relaxed">
+                          Navigate to staff picks through the sidebar to discover high-quality, vetted repositories.
+                        </p>
                       </div>
                     </FeatureTile>
 
                     <FeatureTile
                       title="Badge-based classification"
                       description="Repositories grouped using clear badges such as startup, devtools, AI, bug bounty, and GSSoC for faster contextual scanning."
-                      className="lg:col-span-4 lg:row-span-1 min-h-[280px]"
+                      className="lg:col-span-4"
                     >
-                      <div className="space-y-4 text-sm text-[#a8a8b3] leading-relaxed">
-                        <div className="rounded-2xl border border-white/5 bg-white/5 px-3 py-2 flex flex-wrap gap-2">
-                          {["Startup", "Devtools", "AI", "Bug bounty", "GSSoC", "Community"].map((badge) => (
-                            <span
-                              key={badge}
-                              className="px-3 py-1.5 rounded-full border border-white/10 bg-[#0f1117] text-[12px] text-[#dfe1e6] uppercase tracking-wide"
-                            >
-                              {badge}
+                      <div className="space-y-4">
+                        <div className="rounded-lg border border-border/60 bg-card/50 backdrop-blur-sm p-3 space-y-3 shadow-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                              Categories
                             </span>
-                          ))}
+                            <button className="text-xs text-primary hover:underline">Clear all</button>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            {[
+                              { name: "Startup", active: true },
+                              { name: "Devtools", active: true },
+                              { name: "AI", active: false },
+                              { name: "Bug Bounty", active: false },
+                              { name: "GSSoC", active: false },
+                              { name: "Community", active: false },
+                            ].map((badge) => (
+                              <button
+                                key={badge.name}
+                                className={`px-3 py-1.5 rounded-md border text-xs font-semibold uppercase tracking-wide transition-all ${
+                                  badge.active
+                                    ? "bg-primary/10 border-primary/30 text-primary"
+                                    : "bg-muted/40 border-border/50 text-muted-foreground hover:bg-muted/60"
+                                }`}
+                              >
+                                {badge.name}
+                              </button>
+                            ))}
+                          </div>
+
+                          <div className="pt-2 border-t border-border/40">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">154 repositories</span>
+                              <span className="text-primary font-medium">2 active</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="rounded-2xl border border-white/5 bg-[#0d0e12]/80 p-3 space-y-2">
-                          {["Signals stay consistent across categories", "Text-first labels keep scanning calm"].map((line) => (
-                            <div key={line} className="flex items-center justify-between gap-2 text-[13px] text-[#dfe1e6] rounded-xl px-2 py-2 border border-white/5 bg-white/5">
-                              <span className="inline-flex items-center gap-2">
-                                <span className="h-2 w-2 rounded-full bg-white/20" />
-                                {line}
-                              </span>
-                              <span className="h-6 px-2 rounded-lg border border-white/10 bg-[#11121a] text-[11px] text-[#cfd0d3] flex items-center">
-                                badge
+
+                        <div className="space-y-2">
+                          {[
+                            { category: "Devtools", color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
+                            { category: "Startup", color: "bg-green-500/10 text-green-400 border-green-500/20" },
+                          ].map((item, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-border/40 bg-muted/30 hover:bg-muted/50 transition-colors text-xs"
+                            >
+                              <span className="text-foreground font-medium">Repository {idx + 1}</span>
+                              <span className={`px-2.5 py-1 rounded-md border text-[10px] font-semibold ${item.color}`}>
+                                {item.category}
                               </span>
                             </div>
                           ))}
                         </div>
-                        <p>Badges keep scanning fast while remaining low-noise.</p>
+
+                        <p className="text-[13px] text-muted-foreground leading-relaxed">
+                          Filter by badge categories to instantly narrow down repositories by context and purpose.
+                        </p>
                       </div>
                     </FeatureTile>
 
                     <FeatureTile
                       title="Unified repository view"
                       description="Essential GitHub metadata presented cleanly in one place: stars, forks, language, and last activity."
-                      className="lg:col-span-4 lg:row-span-1 min-h-[280px]"
+                      className="lg:col-span-4"
                     >
-                      <div className="space-y-4 text-sm text-[#a8a8b3] leading-relaxed">
-                        <div className="rounded-2xl border border-white/5 bg-[#0d0e12]/80 p-3 space-y-2">
-                          {["Core details stay together", "Layout stays predictable", "Muted labels keep balance"].map((line) => (
-                            <div key={line} className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/5 px-3 py-2 text-[13px] text-[#dfe1e6]">
-                              <span className="inline-flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-white/20" />
-                                {line}
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <span className="px-3 py-1 rounded-full bg-[#0f1115] border border-white/10 text-[12px] text-[#dfe1e6]">TypeScript</span>
-                                <div className="w-8 h-8 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-[#dfe1e6]">
-                                  ⧉
-                                </div>
+                      <div className="space-y-3">
+                        <div className="rounded-lg border border-border/60 bg-card/80 backdrop-blur-sm overflow-hidden shadow-sm">
+                          <div className="p-4 space-y-3">
+                            <div className="flex items-start gap-3">
+                              <div className="w-12 h-12 rounded-lg bg-muted border border-border flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-semibold text-foreground truncate">next.js</h4>
+                                <p className="text-xs text-muted-foreground">vercel</p>
                               </div>
                             </div>
+
+                            <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                              The React Framework for the Web
+                            </p>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="flex items-center gap-1.5 text-xs">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-yellow-500">
+                                  <path d="M7 1l2 4 4 .5-3 3 .5 4-3.5-2-3.5 2 .5-4-3-3 4-.5 2-4z" fill="currentColor" />
+                                </svg>
+                                <span className="text-muted-foreground">120k</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-xs">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-muted-foreground">
+                                  <path
+                                    d="M5 4c0-1 1-2 2-2s2 1 2 2-1 2-2 2zm4 7c0 1-1 2-2 2s-2-1-2-2 1-2 2-2z"
+                                    stroke="currentColor"
+                                    strokeWidth="1.2"
+                                    fill="none"
+                                  />
+                                  <path d="M7 6v2" stroke="currentColor" strokeWidth="1.2" />
+                                </svg>
+                                <span className="text-muted-foreground">26k</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2 border-t border-border/40">
+                              <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/60 border border-border/50 text-xs">
+                                <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                                TypeScript
+                              </span>
+                              <span className="text-xs text-muted-foreground">Updated today</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <p className="text-[13px] text-muted-foreground leading-relaxed">
+                          All essential metadata in a single, scannable view for quick repository evaluation.
+                        </p>
+                      </div>
+                    </FeatureTile>
+
+                    <FeatureTile
+                      title="Fast filtering and exploration"
+                      description="Instant filtering without losing context, designed for rapid comparison across multiple repositories."
+                      className="lg:col-span-4"
+                    >
+                      <div className="space-y-3">
+                        <div className="rounded-lg border border-border/60 bg-card/50 backdrop-blur-sm p-3 space-y-2.5 shadow-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                              Filters
+                            </span>
+                            <span className="text-xs text-primary font-medium">3 active</span>
+                          </div>
+
+                          <div className="space-y-2">
+                            {["JavaScript", "Stars > 1000", "Updated this year"].map((label) => (
+                              <div
+                                key={label}
+                                className="flex items-center justify-between p-2 rounded-md bg-muted/40 border border-border/50"
+                              >
+                                <span className="text-xs font-medium text-foreground">{label}</span>
+                                <button className="text-xs text-muted-foreground hover:text-foreground">✕</button>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="pt-2 border-t border-border/40">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">847 results</span>
+                              <button className="text-primary hover:underline">Add filter</button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          {["Python", "TypeScript", "Go", "Rust"].map((lang) => (
+                            <button
+                              key={lang}
+                              className="px-2.5 py-1.5 rounded-md border border-border bg-card hover:bg-accent transition-colors text-xs font-medium text-foreground"
+                            >
+                              {lang}
+                            </button>
                           ))}
                         </div>
-                        <p>Core metadata sits in one place without clutter.</p>
-                        <p>Muted supporting text keeps the hierarchy calm.</p>
+
+                        <p className="text-[13px] text-muted-foreground leading-relaxed">
+                          Apply multiple filters instantly and switch between language contexts without page reloads.
+                        </p>
                       </div>
                     </FeatureTile>
                   </div>
