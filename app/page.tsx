@@ -233,11 +233,12 @@ export default function LandingPage() {
                 <div className="flex justify-start items-center gap-4">
                 <Link href="/auth/signin">
                   <motion.button
-                    whileHover={{ scale: 1.04, y: -1 }}
+                    whileHover={{ scale: 1.05, y: -2, boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)" }}
                     whileTap={{ scale: 0.97 }}
-                    className="h-10 sm:h-11 md:h-12 px-6 sm:px-8 md:px-10 rounded-full bg-neutral-200 text-neutral-900 text-sm md:text-base font-medium tracking-tight flex items-center justify-center transition-colors duration-150"
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                    className="h-10 sm:h-11 md:h-12 px-6 sm:px-8 md:px-10 rounded-full bg-neutral-200 text-neutral-900 text-sm md:text-base font-medium tracking-tight flex items-center justify-center transition-all duration-300 hover:bg-neutral-300"
                   >
-                    Start for free
+                    Explore Now
                   </motion.button>
                 </Link>
 

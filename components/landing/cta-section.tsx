@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { motion } from "framer-motion"
 
 export default function CTASection() {
   return (
@@ -37,12 +38,17 @@ export default function CTASection() {
           <div className="w-full max-w-[600px] flex flex-col justify-center items-center gap-12">
             <div className="flex justify-start items-center gap-4">
               <Link href="/auth/signin">
-                <div className="cursor-pointer h-10 sm:h-11 md:h-12 px-6 sm:px-8 md:px-10 lg:px-12 py-2 sm:py-[6px] relative bg-[#d9d9d9] shadow-[0px_0px_0px_2.5px_rgba(0,0,0,0.1)_inset] overflow-hidden rounded-full flex justify-center items-center">
+                <motion.div
+                  whileHover={{ scale: 1.05, y: -2, boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)" }}
+                  whileTap={{ scale: 0.97 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  className="cursor-pointer h-10 sm:h-11 md:h-12 px-6 sm:px-8 md:px-10 lg:px-12 py-2 sm:py-[6px] relative bg-[#d9d9d9] shadow-[0px_0px_0px_2.5px_rgba(0,0,0,0.1)_inset] overflow-hidden rounded-full flex justify-center items-center transition-all duration-300 hover:bg-[#e5e5e5]"
+                >
                   <div className="w-20 sm:w-24 md:w-28 lg:w-44 h-[41px] absolute left-0 top-[-0.5px] bg-gradient-to-b from-[rgba(255,255,255,0)] to-[rgba(0,0,0,0.10)] mix-blend-multiply"></div>
                   <div className="flex flex-col justify-center text-[#1a1a1a] text-sm sm:text-base md:text-[15px] font-medium leading-5 font-sans">
-                    Start for free
+                    Explore Now
                   </div>
-                </div>
+                </motion.div>
               </Link>
 
             </div>
