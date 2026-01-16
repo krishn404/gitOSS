@@ -91,6 +91,8 @@ export const authConfig = {
         session.user.image = token.image as string | undefined
         // @ts-ignore - custom property
         session.user.githubUsername = (token.githubUsername as string) || undefined
+        // @ts-ignore - custom property
+        session.user.provider = (token.provider as string) || undefined
       }
       return session
     },

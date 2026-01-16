@@ -29,30 +29,57 @@ export default function ContributionPicksPage() {
   const [error, setError] = useState<string | null>(null)
   const [showUsernameInput, setShowUsernameInput] = useState(false)
   const [loadingProgress, setLoadingProgress] = useState(0)
+  const [progressMessage, setProgressMessage] = useState<string>("Analyzing your profile and finding matches...")
 
   useEffect(() => {
     setActiveNav("contributionPicks")
   }, [setActiveNav])
 
   useEffect(() => {
-    const hasGithub = (session?.user as any)?.provider === "github" || !!(session?.user as any)?.githubUsername
-    if (session?.user && hasGithub && !showUsernameInput) {
+    const provider = (session?.user as any)?.provider
+    const hasGithub = provider === "github" || !!(session?.user as any)?.githubUsername
+    
+    // If user logged in via GitHub, skip username input and fetch immediately
+    if (session?.user && hasGithub && provider === "github" && !showUsernameInput && repositories.length === 0) {
       fetchRecommendations()
     }
-  }, [session?.user, showUsernameInput])
+    // If user logged in via Google only, automatically show username input on mount
+    else if (session?.user && provider === "google" && !hasGithub && repositories.length === 0) {
+      setShowUsernameInput(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user])
 
   const fetchRecommendations = useCallback(async (username?: string) => {
     setIsLoading(true)
     setError(null)
     setLoadingProgress(0)
+    setProgressMessage("Analyzing your profile and finding matches...")
 
-    // Simulate loading progress
+    // Step-based progress simulation aligned with API steps
+    const progressSteps = [
+      { progress: 10, message: "Analyzing your GitHub profile..." },
+      { progress: 25, message: "Profile analysis complete" },
+      { progress: 30, message: "Checking your existing repositories..." },
+      { progress: 40, message: "Excluding previously seen repositories..." },
+      { progress: 50, message: "Searching for matching repositories..." },
+      { progress: 60, message: "Found potential matches" },
+      { progress: 70, message: "Analyzing repositories with AI..." },
+      { progress: 85, message: "Selecting best matches for you..." },
+      { progress: 90, message: "Generating personalized recommendations..." },
+      { progress: 95, message: "Finalizing recommendations..." },
+      { progress: 100, message: "Recommendations ready!" },
+    ]
+
+    let currentStep = 0
     const progressInterval = setInterval(() => {
-      setLoadingProgress((prev) => {
-        if (prev >= 90) clearInterval(progressInterval)
-        return prev + Math.random() * 30
-      })
-    }, 200)
+      if (currentStep < progressSteps.length - 1) {
+        currentStep++
+        const step = progressSteps[currentStep]
+        setLoadingProgress(Math.min(100, Math.max(0, step.progress)))
+        setProgressMessage(step.message)
+      }
+    }, 800) // Update every 800ms to simulate realistic progress
 
     try {
       const params = new URLSearchParams()
@@ -71,10 +98,12 @@ export default function ContributionPicksPage() {
       setRepositories(data.repositories || [])
       setShowUsernameInput(false)
       setLoadingProgress(100)
+      setProgressMessage("Recommendations ready!")
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred")
       setRepositories([])
       setLoadingProgress(0)
+      setProgressMessage("An error occurred")
     } finally {
       setIsLoading(false)
       clearInterval(progressInterval)
@@ -124,12 +153,19 @@ export default function ContributionPicksPage() {
       </div>
 
       <div className="px-6 py-8 max-w-7xl mx-auto">
-        {/* GitHub username prompt for Google auth users */}
-        {session?.user &&
-          (session?.user as any)?.provider !== "github" &&
-          !showUsernameInput &&
-          repositories.length === 0 &&
-          !isLoading && <GitHubUsernameInput onSubmit={fetchRecommendations} loading={isLoading} />}
+        {/* GitHub username prompt for Google auth users or when showUsernameInput is true */}
+        {session?.user && 
+          !(session?.user as any)?.githubUsername && 
+          repositories.length === 0 && 
+          !isLoading && 
+          (showUsernameInput || (session?.user as any)?.provider === "google") && (
+            <GitHubUsernameInput 
+              onSubmit={async (username) => {
+                await fetchRecommendations(username)
+              }} 
+              loading={isLoading} 
+            />
+          )}
 
         {/* Error state */}
         {error && (
@@ -159,12 +195,12 @@ export default function ContributionPicksPage() {
               <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-blue-600 to-blue-400 transition-all duration-300"
-                  style={{ width: `${loadingProgress}%` }}
+                  style={{ width: `${Math.min(100, Math.max(0, loadingProgress))}%` }}
                 />
               </div>
-              <span className="text-xs text-gray-400">{Math.round(loadingProgress)}%</span>
+              <span className="text-xs text-gray-400">{Math.round(Math.min(100, Math.max(0, loadingProgress)))}%</span>
             </div>
-            <p className="text-xs text-gray-500">Analyzing your profile and finding matches...</p>
+            <p className="text-xs text-gray-500">{progressMessage}</p>
           </div>
         )}
 
@@ -174,24 +210,6 @@ export default function ContributionPicksPage() {
             renderSkeletons(6)
           ) : repositories.length > 0 ? (
             repositories.map((repo, index) => <ContributionPicksCard key={repo.id} repo={repo} index={index} />)
-          ) : !isLoading && !error ? (
-            // Empty state
-            <div className="col-span-full">
-              <Card className="border-white/10 bg-gradient-to-br from-white/[0.03] to-white/[0.01]">
-                <CardContent className="p-12 text-center">
-                  <p className="text-gray-400 text-sm mb-4">No recommendations available yet</p>
-                  {(session?.user as any)?.provider !== "github" && (
-                    <Button
-                      onClick={() => setShowUsernameInput(true)}
-                      variant="outline"
-                      className="border-white/10 hover:bg-white/5"
-                    >
-                      Enter GitHub Username
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
           ) : null}
         </div>
 

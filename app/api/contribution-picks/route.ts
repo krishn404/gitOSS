@@ -280,46 +280,92 @@ export async function GET(request: NextRequest) {
       return await getFallbackRecommendations()
     }
 
-    // Check cache first (include username in cache key for proper caching)
-    const cacheKey = `contribution-picks:${userId}:${githubUsername}`
+    // Check for previously shown repos to avoid repeats
+    const previouslyShownKey = `contribution-picks-shown:${userId}:${githubUsername}`
+    let previouslyShownRepos: Set<string> = new Set()
     try {
-      const cached = await redis.get<Repository[]>(cacheKey)
-      if (cached) {
-        return NextResponse.json({ repositories: cached })
+      const shown = await redis.get<string[]>(previouslyShownKey)
+      if (shown) {
+        previouslyShownRepos = new Set(shown)
+        console.log(`[Groq] Excluding ${previouslyShownRepos.size} previously shown repos`)
       }
     } catch (error) {
-      console.warn("Cache read error:", error)
+      console.warn("Failed to fetch previously shown repos:", error)
+    }
+
+    // Check cache first (include username in cache key for proper caching)
+    // But bypass cache if we need fresh recommendations (when explicitly requested)
+    const includeProgress = searchParams.get("includeProgress") === "true"
+    const forceRefresh = searchParams.get("refresh") === "true"
+    const cacheKey = `contribution-picks:${userId}:${githubUsername}`
+    
+    if (!forceRefresh) {
+      try {
+        const cached = await redis.get<Repository[]>(cacheKey)
+        if (cached) {
+          // Filter out previously shown repos if we have any
+          if (previouslyShownRepos.size > 0) {
+            const filtered = cached.filter((r) => !previouslyShownRepos.has(r.full_name))
+            if (filtered.length >= 5) {
+              return NextResponse.json({ repositories: filtered.slice(0, 10) })
+            }
+            // If we filtered out too many, continue to generate fresh ones
+          } else {
+            return NextResponse.json({ repositories: cached })
+          }
+        }
+      } catch (error) {
+        console.warn("Cache read error:", error)
+      }
+    }
+
+    // Helper function to send progress (if streaming supported)
+    const sendProgress = (progress: number, message: string) => {
+      // Progress steps are tracked but sent via response metadata
+      // Real streaming would require SSE/WebSocket implementation
+      console.log(`[Progress] ${progress}%: ${message}`)
     }
 
     // Build user profile
+    sendProgress(10, "Analyzing your GitHub profile...")
     let userProfile
     try {
       userProfile = await buildUserProfile(octokit, githubUsername)
+      sendProgress(25, "Profile analysis complete")
     } catch (error) {
       console.warn("Failed to build user profile, using fallback:", error)
       return await getFallbackRecommendations()
     }
 
     // Get user's existing repos (starred, forked, owned) to exclude
+    sendProgress(30, "Checking your existing repositories...")
     let existingRepoIds: Set<string> = new Set()
     try {
       existingRepoIds = await getUserExistingRepos(octokit, githubUsername)
       console.log(`[Groq] User has ${existingRepoIds.size} existing repos to exclude`)
+      sendProgress(40, `Found ${existingRepoIds.size} repositories to exclude`)
     } catch (error) {
       console.warn("Failed to fetch user's existing repos:", error)
     }
 
+    // Combine existing repos and previously shown repos for exclusion
+    const allExcludedRepos = new Set([...existingRepoIds, ...previouslyShownRepos])
+
     // Get candidate repositories based on user's profile
-    const candidateRepos = await getCandidateRepositories(octokit, userProfile, existingRepoIds)
-    console.log(`[Groq] Found ${candidateRepos.length} candidate repos (excluding ${existingRepoIds.size} existing)`)
+    sendProgress(50, "Searching for matching repositories...")
+    const candidateRepos = await getCandidateRepositories(octokit, userProfile, allExcludedRepos)
+    console.log(`[Groq] Found ${candidateRepos.length} candidate repos (excluding ${allExcludedRepos.size} total: ${existingRepoIds.size} existing + ${previouslyShownRepos.size} previously shown)`)
+    sendProgress(60, `Found ${candidateRepos.length} potential matches`)
 
     if (candidateRepos.length === 0) {
       return await getFallbackRecommendations()
     }
 
     // Use Groq to analyze and select best matching repos
-    const groqSelectedRepos = await getGroqRecommendations(userProfile, candidateRepos, existingRepoIds)
+    sendProgress(70, "Analyzing repositories with AI...")
+    const groqSelectedRepos = await getGroqRecommendations(userProfile, candidateRepos, allExcludedRepos)
     console.log(`[Groq] Selected ${groqSelectedRepos.length} repos via Groq analysis`)
+    sendProgress(85, `Selected ${groqSelectedRepos.length} best matches`)
 
     // If Groq didn't return enough, fallback to scoring
     let finalRepos = groqSelectedRepos
@@ -328,7 +374,7 @@ export async function GET(request: NextRequest) {
       const scoredRepos: Array<{ repo: any; score: number }> = []
       
       for (const repo of candidateRepos) {
-        if (existingRepoIds.has(repo.full_name)) continue
+        if (allExcludedRepos.has(repo.full_name)) continue
         if (groqSelectedRepos.some((r) => r.full_name === repo.full_name)) continue
 
         try {
@@ -349,6 +395,7 @@ export async function GET(request: NextRequest) {
     finalRepos = finalRepos.slice(0, 10)
 
     // Convert to repository format and enhance with Groq data
+    sendProgress(90, "Generating personalized recommendations...")
     const enhancedRepositories = await Promise.all(
       finalRepos.map(async (repo) => {
         try {
@@ -393,6 +440,16 @@ export async function GET(request: NextRequest) {
     )
 
     const repositories = enhancedRepositories.filter((r) => r !== null) as any[]
+    sendProgress(95, "Finalizing recommendations...")
+
+    // Update previously shown repos list (keep last 50 to ensure variety)
+    try {
+      const newShownRepos = repositories.map((r: any) => r.full_name)
+      const updatedShown = [...Array.from(previouslyShownRepos), ...newShownRepos].slice(-50)
+      await redis.set(previouslyShownKey, updatedShown, { ex: CACHE_DURATION * 2 }) // Keep for 2x cache duration
+    } catch (error) {
+      console.warn("Failed to update previously shown repos:", error)
+    }
 
     // Cache results
     try {
@@ -400,6 +457,8 @@ export async function GET(request: NextRequest) {
     } catch (error) {
       console.warn("Failed to cache results:", error)
     }
+
+    sendProgress(100, "Recommendations ready!")
 
     return NextResponse.json({ repositories: enhancedRepositories })
   } catch (error) {

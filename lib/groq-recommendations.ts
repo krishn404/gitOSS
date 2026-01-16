@@ -34,7 +34,7 @@ Return ONLY valid JSON (no markdown, no commentary) in this exact format:
   {
     "full_name": "owner/repo",
     "matchScore": 0,
-    "summary": "One-line reason (<= 90 chars)",
+    "summary": "Unique, specific reason why THIS repo matches the user (80-120 chars). Be specific about the repo's features, domain, or tech stack that aligns with the user's profile. Avoid generic phrases.",
     "whyMatches": ["Reason 1", "Reason 2"],
     "firstSteps": ["Step 1", "Step 2"],
     "difficulty": "Easy" | "Medium" | "Hard"
@@ -42,8 +42,10 @@ Return ONLY valid JSON (no markdown, no commentary) in this exact format:
 ]
 
 Content style rules:
+- The "summary" field is critical - make it unique per repo. Reference specific technologies, features, or project goals that match the user's experience.
+- Example good summary: "Builds React components like your starred projects, needs help with TypeScript migrations"
+- Example bad summary: "A good open source project" (too generic)
 - Keep explanations concrete and contribution-focused (what the user can ship).
-- Avoid generic fluff.
 - If no good matches exist, return an empty JSON array [].`
 
 /**
@@ -83,6 +85,11 @@ function buildCandidateReposSummary(candidateRepos: any[]): string {
     })
     .join("\n\n")
 }
+
+/**
+ * Alias for getOss120bRecommendations (Groq-compatible)
+ */
+export const getGroqRecommendations = getOss120bRecommendations
 
 /**
  * Use openai/gpt-oss-120b to analyze user profile and select best matching repos from candidates

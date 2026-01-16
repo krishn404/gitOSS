@@ -1,6 +1,6 @@
 "use client"
 
-import { Star, GitFork, Bookmark, BookmarkCheck, ExternalLink, Folder, BarChart3, AlertCircle } from "lucide-react"
+import { Star, GitFork, Bookmark, BookmarkCheck, Github, AlertCircle } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -23,7 +23,6 @@ export function ContributionPicksCard({ repo, index }: ContributionPicksCardProp
   const bookmarked = isBookmarked(repo.id)
 
   const matchScore = repo.matchScore || 75
-  const difficulty = repo.difficulty || "Medium"
 
   // Status based on match score
   const getStatus = () => {
@@ -33,18 +32,6 @@ export function ContributionPicksCard({ repo, index }: ContributionPicksCardProp
   }
 
   const status = getStatus()
-
-  const difficultyColors = {
-    Easy: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-    Medium: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-    Hard: "bg-rose-500/15 text-rose-300 border-rose-500/30",
-  }
-
-  const priorityLevels = {
-    Easy: 1,
-    Medium: 2,
-    Hard: 3,
-  }
 
   function formatNumber(num: number) {
     if (num >= 1000) return (num / 1000).toFixed(1) + "k"
@@ -70,50 +57,11 @@ export function ContributionPicksCard({ repo, index }: ContributionPicksCardProp
     }
   }
 
-  // Circular progress component
-  const CircularProgress = ({ percentage }: { percentage: number }) => {
-    const radius = 14
-    const circumference = 2 * Math.PI * radius
-    const offset = circumference - (percentage / 100) * circumference
-
-    return (
-      <div className="relative w-8 h-8 flex items-center justify-center">
-        <svg className="w-8 h-8 transform -rotate-90" viewBox="0 0 32 32">
-          <circle
-            cx="16"
-            cy="16"
-            r={radius}
-            stroke="currentColor"
-            strokeWidth="2.5"
-            fill="none"
-            className="text-white/10"
-          />
-          <circle
-            cx="16"
-            cy="16"
-            r={radius}
-            stroke="currentColor"
-            strokeWidth="2.5"
-            fill="none"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            strokeLinecap="round"
-            className="text-blue-400 transition-all duration-500"
-          />
-        </svg>
-        <span className="absolute text-[10px] font-semibold text-white">{Math.round(percentage)}%</span>
-      </div>
-    )
-  }
 
   return (
     <div className="group relative bg-white/[0.02] backdrop-blur-md border border-white/10 rounded-lg p-4 hover:bg-white/[0.04] hover:border-white/20 transition-all duration-300">
-      {/* Top row: Icon + Status */}
-      <div className="flex items-start justify-between mb-3">
-        <div className="w-8 h-8 rounded-md bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
-          <Folder className="w-4 h-4 text-white/60" />
-        </div>
-
+      {/* Top row: Status only */}
+      <div className="flex items-start justify-end mb-3">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
             <div className={`w-1.5 h-1.5 rounded-full ${status.dotColor}`} />
@@ -146,33 +94,6 @@ export function ContributionPicksCard({ repo, index }: ContributionPicksCardProp
         </p>
       </div>
 
-      {/* Match Score with Progress */}
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-white/50">Match</span>
-          <span className="text-xs font-semibold text-white">{Math.round(matchScore)}%</span>
-        </div>
-        <CircularProgress percentage={matchScore} />
-      </div>
-
-      {/* Priority (Difficulty) */}
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <BarChart3 className="w-3.5 h-3.5 text-white/40" />
-          <span className="text-xs text-white/50">Difficulty</span>
-        </div>
-        <div className="flex items-center gap-1">
-          {[1, 2, 3].map((level) => (
-            <div
-              key={level}
-              className={`w-1.5 h-1.5 rounded ${
-                level <= priorityLevels[difficulty] ? "bg-amber-400" : "bg-white/10"
-              }`}
-            />
-          ))}
-        </div>
-      </div>
-
       {/* Compact Stats Row */}
       <div className="mb-3 flex items-center gap-3 text-xs text-white/50 pb-3 border-b border-white/10">
         <div className="flex items-center gap-1">
@@ -189,10 +110,10 @@ export function ContributionPicksCard({ repo, index }: ContributionPicksCardProp
         </div>
       </div>
 
-      {/* Why you should contribute section */}
+      {/* Why you should contribute section - dynamically generated by Groq */}
       <div className="mb-3">
         <p className="text-xs text-white/40 font-medium uppercase tracking-wide mb-1.5">Why contribute</p>
-        <p className="text-xs text-white/70 leading-relaxed line-clamp-2">
+        <p className="text-xs text-white/70 leading-relaxed line-clamp-3">
           {repo.matchReason || "A great project to contribute to based on your profile"}
         </p>
       </div>
@@ -231,11 +152,11 @@ export function ContributionPicksCard({ repo, index }: ContributionPicksCardProp
       <div className="flex gap-2 pt-2">
         <a href={repo.html_url} target="_blank" rel="noopener noreferrer" className="flex-1">
           <Button
-            variant="default"
+            variant="outline"
             size="sm"
-            className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-white border-0 text-xs transition-all duration-200"
+            className="w-full h-8 bg-transparent hover:bg-white/5 text-white/90 border-white/20 hover:border-white/30 text-xs font-medium transition-all duration-200 group/btn"
           >
-            <ExternalLink className="w-3 h-3 mr-1.5" />
+            <Github className="w-3.5 h-3.5 mr-1.5 opacity-70 group-hover/btn:opacity-100 transition-opacity" />
             Visit
           </Button>
         </a>
