@@ -19,12 +19,20 @@ class InMemoryRedisFallback {
     this.store.set(key, { value, expiresAt })
     return "OK"
   }
+
+  async del(key: string): Promise<number> {
+    const existed = this.store.has(key)
+    this.store.delete(key)
+    return existed ? 1 : 0
+  }
 }
 
 // Initialize Redis client, with automatic fallback to in-memory if unreachable
 const hasUpstash = Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
 
-type RedisLike = Pick<Redis, "get" | "set">
+type RedisLike = Pick<Redis, "get" | "set"> & {
+  del?: (key: string) => Promise<number>
+}
 
 function isTransientNetworkError(error: unknown): boolean {
   const anyErr = error as any
@@ -103,6 +111,31 @@ class HybridRedis implements RedisLike {
       }
     }
     return await this.fallback.set(key, value, opts)
+  }
+
+  async del(key: string): Promise<number> {
+    if (this.primary && !this.usingFallback) {
+      try {
+        // Upstash Redis has del method
+        if (typeof (this.primary as any).del === 'function') {
+          return await (this.primary as any).del(key)
+        }
+        // Fallback: set with very short TTL (1 second) to effectively delete
+        await this.primary.set(key, null as any, { ex: 1 })
+        return 1
+      } catch (err) {
+        if (process.env.NODE_ENV !== "production" || isTransientNetworkError(err)) {
+          this.usingFallback = true
+          console.warn(
+            "[Git-Friend] Upstash unreachable. Using in-memory cache for delete.",
+            (err as Error)?.message || err
+          )
+          return await this.fallback.del(key)
+        }
+        throw err
+      }
+    }
+    return await this.fallback.del(key)
   }
 }
 

@@ -29,51 +29,206 @@ function getConvexClient() {
 const CACHE_DURATION = 18 * 60 * 60 // 18 hours in seconds
 
 /**
+ * Major organizations to prioritize
+ */
+const MAJOR_ORGS = [
+  'facebook', 'meta', 'google', 'vercel', 'microsoft', 
+  'shopify', 'stripe', 'netflix', 'aws', 'amazon'
+]
+
+/**
+ * Filter repositories to only include active, high-quality repos
+ */
+function filterActiveRepos(repos: any[]): any[] {
+  const sixMonthsAgo = new Date()
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+  const sixMonthsAgoISO = sixMonthsAgo.toISOString().split('T')[0]
+
+  return repos.filter((repo: any) => {
+    // Must have pushed_at within last 6 months
+    if (!repo.pushed_at || new Date(repo.pushed_at) < sixMonthsAgo) {
+      return false
+    }
+
+    // Must have at least 500 stars
+    if (repo.stargazers_count < 500) {
+      return false
+    }
+
+    // Must not be archived
+    if (repo.archived === true) {
+      return false
+    }
+
+    // Must be from major orgs OR have 1000+ stars (for smaller orgs)
+    const owner = repo.owner?.login?.toLowerCase() || ''
+    const isMajorOrg = MAJOR_ORGS.some(org => owner.includes(org))
+    const hasHighStars = repo.stargazers_count >= 1000
+
+    return isMajorOrg || hasHighStars
+  })
+}
+
+/**
+ * Get user's last 10 commits to extract keywords for matching
+ */
+async function getUserCommitKeywords(
+  octokit: ReturnType<typeof createOctokit>,
+  username: string,
+): Promise<Set<string>> {
+  const keywords = new Set<string>()
+  
+  try {
+    // Get user's public events to find recent commits
+    const { data: events } = await octokit.activity.listPublicEventsForUser({
+      username,
+      per_page: 30,
+    })
+
+    // Extract commit messages from PushEvents
+    let commitCount = 0
+    for (const event of events) {
+      if (event.type === 'PushEvent' && 'payload' in event && commitCount < 10) {
+        const payload = event.payload as any
+        if (payload.commits && Array.isArray(payload.commits)) {
+          for (const commit of payload.commits.slice(0, 10 - commitCount)) {
+            if (commit.message) {
+              // Extract keywords from commit message
+              const message = commit.message.toLowerCase()
+              // Split by common separators and extract meaningful words
+              const words = message
+                .split(/[\s\-_\/:]+/)
+                .filter(word => 
+                  word.length > 3 && 
+                  !['fix', 'add', 'update', 'remove', 'change', 'refactor'].includes(word)
+                )
+                .slice(0, 5) // Take top 5 words per commit
+              
+              words.forEach(word => keywords.add(word))
+              commitCount++
+              if (commitCount >= 10) break
+            }
+          }
+        }
+      }
+      if (commitCount >= 10) break
+    }
+  } catch (error) {
+    console.warn('Failed to fetch user commits for keyword extraction:', error)
+  }
+
+  return keywords
+}
+
+/**
+ * Score repository based on commit keyword matches
+ */
+function scoreByCommitKeywords(
+  repo: any,
+  commitKeywords: Set<string>,
+): number {
+  if (commitKeywords.size === 0) return 0
+
+  let score = 0
+  const repoText = `${repo.name} ${repo.description || ''} ${(repo.topics || []).join(' ')}`.toLowerCase()
+
+  // Check for keyword matches in repo name, description, and topics
+  for (const keyword of commitKeywords) {
+    if (repoText.includes(keyword.toLowerCase())) {
+      score += 10 // 10 points per keyword match
+    }
+  }
+
+  return Math.min(100, score) // Cap at 100
+}
+
+/**
  * Get candidate repositories from GitHub based on user's profile
- * Searches for repos matching user's languages and interests
+ * Filters for active repos only: <6 months old, 500+ stars, not archived, major orgs
  */
 async function getCandidateRepositories(
   octokit: ReturnType<typeof createOctokit>,
   userProfile: UserProfile,
   existingRepos: Set<string>,
+  commitKeywords?: Set<string>,
 ): Promise<any[]> {
   const repos: any[] = []
   const userLanguages = Array.from(userProfile.languages.keys()).slice(0, 3) // Top 3 languages
+  const sixMonthsAgo = new Date()
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+  const sixMonthsAgoISO = sixMonthsAgo.toISOString().split('T')[0]
 
-  // Search for repos based on user's primary languages
+  // Build org filter for major organizations
+  const orgFilter = MAJOR_ORGS.map(org => `user:${org}`).join(' OR ')
+
+  // Search for repos based on user's primary languages from major orgs
   for (const lang of userLanguages) {
     try {
       const { data } = await octokit.search.repos({
-        q: `language:${lang} is:public stars:>100`,
-        sort: "stars",
+        q: `language:${lang} is:public stars:>500 pushed:>${sixMonthsAgoISO} (${orgFilter})`,
+        sort: "updated",
         order: "desc",
         per_page: 30,
       })
       
-      // Filter out existing repos
-      const newRepos = data.items.filter((repo: any) => !existingRepos.has(repo.full_name))
-      repos.push(...newRepos)
+      // Filter out existing repos and apply additional filters
+      const filtered = data.items.filter((repo: any) => 
+        !existingRepos.has(repo.full_name) &&
+        !repo.archived &&
+        repo.pushed_at &&
+        new Date(repo.pushed_at) >= sixMonthsAgo
+      )
+      repos.push(...filtered)
     } catch (error) {
       console.warn(`Failed to search repos for language ${lang}:`, error)
     }
   }
 
-  // Also search for repos with help-wanted label
+  // Search for recently active repos from major orgs (prioritize last 30 days)
   try {
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const thirtyDaysAgoISO = thirtyDaysAgo.toISOString().split('T')[0]
+
     const { data } = await octokit.search.repos({
-      q: `is:public stars:>500`,
+      q: `is:public stars:>500 pushed:>${thirtyDaysAgoISO} (${orgFilter})`,
       sort: "updated",
       order: "desc",
       per_page: 50,
     })
     
-    const newRepos = data.items.filter((repo: any) => !existingRepos.has(repo.full_name))
-    repos.push(...newRepos)
+    const filtered = data.items.filter((repo: any) => 
+      !existingRepos.has(repo.full_name) &&
+      !repo.archived &&
+      repo.pushed_at &&
+      new Date(repo.pushed_at) >= sixMonthsAgo
+    )
+    repos.push(...filtered)
   } catch (error) {
-    console.warn("Failed to search help-wanted repos:", error)
+    console.warn("Failed to search recently active repos:", error)
   }
 
-  // Remove duplicates
+  // Also search for high-star repos (1000+) that are active, even if not from major orgs
+  try {
+    const { data } = await octokit.search.repos({
+      q: `is:public stars:>1000 pushed:>${sixMonthsAgoISO}`,
+      sort: "updated",
+      order: "desc",
+      per_page: 30,
+    })
+    
+    const filtered = data.items.filter((repo: any) => 
+      !existingRepos.has(repo.full_name) &&
+      !repo.archived &&
+      repo.pushed_at &&
+      new Date(repo.pushed_at) >= sixMonthsAgo
+    )
+    repos.push(...filtered)
+  } catch (error) {
+    console.warn("Failed to search high-star repos:", error)
+  }
+
+  // Remove duplicates and apply final filtering
   const uniqueRepos = new Map<string, any>()
   for (const repo of repos) {
     if (!uniqueRepos.has(repo.full_name) && !existingRepos.has(repo.full_name)) {
@@ -81,7 +236,46 @@ async function getCandidateRepositories(
     }
   }
 
-  return Array.from(uniqueRepos.values())
+  let finalRepos = Array.from(uniqueRepos.values())
+  
+  // Apply active repo filters
+  finalRepos = filterActiveRepos(finalRepos)
+
+  // If we have commit keywords, prioritize repos that match
+  if (commitKeywords && commitKeywords.size > 0) {
+    finalRepos = finalRepos.map(repo => ({
+      ...repo,
+      _commitMatchScore: scoreByCommitKeywords(repo, commitKeywords),
+    }))
+    
+    // Sort by commit match score (higher first), then by updated date
+    finalRepos.sort((a, b) => {
+      if (b._commitMatchScore !== a._commitMatchScore) {
+        return b._commitMatchScore - a._commitMatchScore
+      }
+      return new Date(b.pushed_at || b.updated_at).getTime() - new Date(a.pushed_at || a.updated_at).getTime()
+    })
+  } else {
+    // Sort by recency (prioritize repos active in last 30 days)
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    
+    finalRepos.sort((a, b) => {
+      const aPushed = new Date(a.pushed_at || a.updated_at)
+      const bPushed = new Date(b.pushed_at || b.updated_at)
+      const aRecent = aPushed >= thirtyDaysAgo
+      const bRecent = bPushed >= thirtyDaysAgo
+      
+      // Prioritize repos active in last 30 days
+      if (aRecent && !bRecent) return -1
+      if (!aRecent && bRecent) return 1
+      
+      // Then sort by recency
+      return bPushed.getTime() - aPushed.getTime()
+    })
+  }
+
+  return finalRepos
 }
 
 /**
@@ -283,20 +477,36 @@ export async function GET(request: NextRequest) {
     // Check for previously shown repos to avoid repeats
     const previouslyShownKey = `contribution-picks-shown:${userId}:${githubUsername}`
     let previouslyShownRepos: Set<string> = new Set()
-    try {
-      const shown = await redis.get<string[]>(previouslyShownKey)
-      if (shown) {
-        previouslyShownRepos = new Set(shown)
-        console.log(`[Groq] Excluding ${previouslyShownRepos.size} previously shown repos`)
+    
+    const forceRefresh = searchParams.get("refresh") === "true"
+    
+    // On refresh, we want to exclude ALL previously shown repos to get 100% new list
+    if (forceRefresh) {
+      try {
+        const shown = await redis.get<string[]>(previouslyShownKey)
+        if (shown) {
+          previouslyShownRepos = new Set(shown)
+          console.log(`[Refresh] Excluding ${previouslyShownRepos.size} previously shown repos for fresh recommendations`)
+        }
+      } catch (error) {
+        console.warn("Failed to fetch previously shown repos:", error)
       }
-    } catch (error) {
-      console.warn("Failed to fetch previously shown repos:", error)
+    } else {
+      // Normal flow: check cache first
+      try {
+        const shown = await redis.get<string[]>(previouslyShownKey)
+        if (shown) {
+          previouslyShownRepos = new Set(shown)
+          console.log(`[Groq] Excluding ${previouslyShownRepos.size} previously shown repos`)
+        }
+      } catch (error) {
+        console.warn("Failed to fetch previously shown repos:", error)
+      }
     }
 
     // Check cache first (include username in cache key for proper caching)
     // But bypass cache if we need fresh recommendations (when explicitly requested)
     const includeProgress = searchParams.get("includeProgress") === "true"
-    const forceRefresh = searchParams.get("refresh") === "true"
     const cacheKey = `contribution-picks:${userId}:${githubUsername}`
     
     if (!forceRefresh) {
@@ -316,6 +526,14 @@ export async function GET(request: NextRequest) {
         }
       } catch (error) {
         console.warn("Cache read error:", error)
+      }
+    } else {
+      // On refresh, clear cache to force fresh generation
+      try {
+        await redis.del(cacheKey)
+        console.log("[Refresh] Cleared cache to generate fresh recommendations")
+      } catch (error) {
+        console.warn("Failed to clear cache on refresh:", error)
       }
     }
 
@@ -337,6 +555,11 @@ export async function GET(request: NextRequest) {
       return await getFallbackRecommendations()
     }
 
+    // Get user's commit keywords for better matching
+    sendProgress(27, "Analyzing your recent commits...")
+    const commitKeywords = await getUserCommitKeywords(octokit, githubUsername)
+    console.log(`[Matching] Extracted ${commitKeywords.size} keywords from user's commits`)
+
     // Get user's existing repos (starred, forked, owned) to exclude
     sendProgress(30, "Checking your existing repositories...")
     let existingRepoIds: Set<string> = new Set()
@@ -351,9 +574,9 @@ export async function GET(request: NextRequest) {
     // Combine existing repos and previously shown repos for exclusion
     const allExcludedRepos = new Set([...existingRepoIds, ...previouslyShownRepos])
 
-    // Get candidate repositories based on user's profile
+    // Get candidate repositories based on user's profile (with commit keyword matching)
     sendProgress(50, "Searching for matching repositories...")
-    const candidateRepos = await getCandidateRepositories(octokit, userProfile, allExcludedRepos)
+    const candidateRepos = await getCandidateRepositories(octokit, userProfile, allExcludedRepos, commitKeywords)
     console.log(`[Groq] Found ${candidateRepos.length} candidate repos (excluding ${allExcludedRepos.size} total: ${existingRepoIds.size} existing + ${previouslyShownRepos.size} previously shown)`)
     sendProgress(60, `Found ${candidateRepos.length} potential matches`)
 
@@ -442,11 +665,16 @@ export async function GET(request: NextRequest) {
     const repositories = enhancedRepositories.filter((r) => r !== null) as any[]
     sendProgress(95, "Finalizing recommendations...")
 
-    // Update previously shown repos list (keep last 50 to ensure variety)
+    // Update previously shown repos list (track all shown repo IDs for refresh exclusion)
     try {
       const newShownRepos = repositories.map((r: any) => r.full_name)
-      const updatedShown = [...Array.from(previouslyShownRepos), ...newShownRepos].slice(-50)
+      // On refresh, replace the list; otherwise append (keep last 100 to ensure variety)
+      const updatedShown = forceRefresh 
+        ? newShownRepos // On refresh, start fresh with new repos
+        : [...Array.from(previouslyShownRepos), ...newShownRepos].slice(-100) // Keep last 100
+      
       await redis.set(previouslyShownKey, updatedShown, { ex: CACHE_DURATION * 2 }) // Keep for 2x cache duration
+      console.log(`[Tracking] Updated shown repos list: ${updatedShown.length} total (${newShownRepos.length} new)`)
     } catch (error) {
       console.warn("Failed to update previously shown repos:", error)
     }
@@ -469,19 +697,27 @@ export async function GET(request: NextRequest) {
 
 /**
  * Fallback recommendations in Repository format
+ * Uses same filtering criteria: active repos only
  */
 async function getFallbackRecommendations(): Promise<NextResponse> {
   const octokit = createOctokit()
+  const sixMonthsAgo = new Date()
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+  const sixMonthsAgoISO = sixMonthsAgo.toISOString().split('T')[0]
+  const orgFilter = MAJOR_ORGS.map(org => `user:${org}`).join(' OR ')
 
   try {
     const { data } = await octokit.search.repos({
-      q: "is:public label:good-first-issue stars:>100",
-      sort: "stars",
+      q: `is:public stars:>500 pushed:>${sixMonthsAgoISO} (${orgFilter})`,
+      sort: "updated",
       order: "desc",
       per_page: 10,
     })
 
-    const repositories: Repository[] = data.items.slice(0, 10).map((repo) => ({
+    // Apply same filters as main function
+    const filtered = filterActiveRepos(data.items)
+
+    const repositories: Repository[] = filtered.slice(0, 10).map((repo) => ({
       id: repo.id,
       name: repo.name,
       full_name: repo.full_name,

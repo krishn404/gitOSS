@@ -50,16 +50,17 @@ export default function ContributionPicksPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user])
 
-  const fetchRecommendations = useCallback(async (username?: string) => {
+  const fetchRecommendations = useCallback(async (username?: string, forceRefresh = false) => {
     setIsLoading(true)
     setError(null)
     setLoadingProgress(0)
-    setProgressMessage("Analyzing your profile and finding matches...")
+    setProgressMessage(forceRefresh ? "Refreshing recommendations..." : "Analyzing your profile and finding matches...")
 
     // Step-based progress simulation aligned with API steps
     const progressSteps = [
       { progress: 10, message: "Analyzing your GitHub profile..." },
       { progress: 25, message: "Profile analysis complete" },
+      { progress: 27, message: "Analyzing your recent commits..." },
       { progress: 30, message: "Checking your existing repositories..." },
       { progress: 40, message: "Excluding previously seen repositories..." },
       { progress: 50, message: "Searching for matching repositories..." },
@@ -85,6 +86,9 @@ export default function ContributionPicksPage() {
       const params = new URLSearchParams()
       if (username) {
         params.append("githubUsername", username)
+      }
+      if (forceRefresh) {
+        params.append("refresh", "true")
       }
 
       const response = await fetch(`/api/contribution-picks?${params.toString()}`)
@@ -144,7 +148,21 @@ export default function ContributionPicksPage() {
         <div className="px-6 py-4">
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-xl font-semibold text-white">Contribution Picks</h1>
-            <UserMenu />
+            <div className="flex items-center gap-3">
+              {repositories.length > 0 && !isLoading && (
+                <Button
+                  onClick={() => fetchRecommendations(undefined, true)}
+                  variant="outline"
+                  size="sm"
+                  className="border-white/20 hover:bg-white/5 text-white/90"
+                  title="Get fresh recommendations"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                  Refresh
+                </Button>
+              )}
+              <UserMenu />
+            </div>
           </div>
           <p className="text-sm text-gray-400">
             Discover open-source repos where you can make an impact based on your GitHub profile
@@ -175,13 +193,13 @@ export default function ContributionPicksPage() {
               <div className="flex-1">
                 <p className="text-sm font-medium text-rose-300 mb-3">{error}</p>
                 <Button
-                  onClick={() => fetchRecommendations()}
+                  onClick={() => fetchRecommendations(undefined, true)}
                   variant="outline"
                   size="sm"
                   className="border-rose-500/30 hover:bg-rose-500/10"
                 >
                   <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-                  Try Again
+                  Refresh
                 </Button>
               </div>
             </CardContent>

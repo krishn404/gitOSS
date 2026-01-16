@@ -1,4 +1,5 @@
 import type { UserProfile, RepoSignals } from "@/types/index"
+import { callGroqWithFallback } from "@/lib/groq-fallback"
 
 /**
  * System Prompt (openai/gpt-oss-120b):
@@ -100,8 +101,8 @@ export async function getOss120bRecommendations(
   existingRepos: Set<string>,
 ): Promise<any[]> {
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      console.warn("[OSS-120B] OPENAI_API_KEY not set, skipping LLM recommendations")
+    if (!process.env.GROQ_API_KEY) {
+      console.warn("[Groq] GROQ_API_KEY not set, skipping LLM recommendations")
       return []
     }
 
@@ -109,7 +110,9 @@ export async function getOss120bRecommendations(
     const reposSummary = buildCandidateReposSummary(candidateRepos)
     const excludedRepos = Array.from(existingRepos).slice(0, 30).join(", ")
 
-    const prompt = `${userProfileSummary}
+    const prompt = `${OSS120B_SYSTEM_PROMPT}
+
+${userProfileSummary}
 
 Candidate Repositories (must pick ONLY from these):
 ${reposSummary}
@@ -121,23 +124,20 @@ Pick 5–10 NEW open-source repos from the candidate list only.
 Do not include anything from the excluded list.
 Return JSON only in the required schema.`
 
-    // Works with OpenAI-compatible SDKs that support custom model routing.
-    // If you're already using Vercel AI SDK, you can swap this with `generateText()`.
-    const OpenAI = require("openai")
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-
-    const completion = await client.chat.completions.create({
-      model: "openai/gpt-oss-120b",
+    // Use Groq fallback system
+    const result = await callGroqWithFallback(prompt, {
       temperature: 0.4,
-      max_tokens: 2000,
-      messages: [
-        { role: "system", content: OSS120B_SYSTEM_PROMPT },
-        { role: "user", content: prompt },
-      ],
+      maxTokens: 2000,
+      timeout: 30000, // 30 seconds for batch analysis
     })
 
-    const response = completion.choices?.[0]?.message?.content?.trim()
-    if (!response) throw new Error("Empty OSS-120B response")
+    if (!result.success) {
+      console.warn(`[Groq] Failed to get recommendations: ${result.error}`)
+      return []
+    }
+
+    const response = result.data.trim()
+    if (!response) throw new Error("Empty Groq response")
 
     // Extract JSON (in case it wraps, still harden)
     let jsonStr = response
@@ -154,26 +154,27 @@ Return JSON only in the required schema.`
       if (repo && !existingRepos.has(repo.full_name)) {
         selectedRepos.push({
           ...repo,
-          llmData: selection,
+          groqData: selection, // Renamed from llmData to groqData for clarity
         })
       }
     }
 
+    console.log(`[Groq] Successfully selected ${selectedRepos.length} repos using model: ${result.modelUsed}`)
     return selectedRepos
   } catch (error) {
-    console.error("[OSS-120B] Error getting recommendations:", error)
+    console.error("[Groq] Error getting recommendations:", error)
     return []
   }
 }
 
 /**
- * Generate match reasoning for a single repo (fallback if batch llmData missing)
+ * Generate match reasoning for a single repo (fallback if batch groqData missing)
  */
 export async function generateMatchReasoning(
   userProfile: UserProfile,
   repo: any,
   repoSignals: RepoSignals,
-  llmData?: any,
+  groqData?: any,
 ): Promise<{
   reason: string
   matchFactors: string[]
@@ -182,19 +183,19 @@ export async function generateMatchReasoning(
   difficulty: string
 }> {
   // If batch analysis already provided reasoning, use it
-  if (llmData) {
+  if (groqData) {
     return {
-      reason: llmData.summary || "Well-matched for your profile",
-      matchFactors: llmData.whyMatches || [],
-      firstSteps: llmData.firstSteps || [],
-      matchScore: llmData.matchScore || 75,
-      difficulty: llmData.difficulty || "Medium",
+      reason: groqData.summary || "Well-matched for your profile",
+      matchFactors: groqData.whyMatches || [],
+      firstSteps: groqData.firstSteps || [],
+      matchScore: groqData.matchScore || 75,
+      difficulty: groqData.difficulty || "Medium",
     }
   }
 
-  // Otherwise do single-repo reasoning via OSS-120B (optional)
+  // Otherwise do single-repo reasoning via Groq (optional)
   try {
-    if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.GROQ_API_KEY) {
       return {
         reason: "Recommended for your profile",
         matchFactors: ["Open source", "Active repository"],
@@ -226,25 +227,29 @@ Maintenance Health: ${repoSignals.maintenanceHealth}%
 Contribution Friendliness: ${repoSignals.contributionFriendliness}%
 `
 
-    const OpenAI = require("openai")
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    const prompt = `${OSS120B_SYSTEM_PROMPT}
 
-    const completion = await client.chat.completions.create({
-      model: "openai/gpt-oss-120b",
+User Profile:
+${userProfileStr}
+
+Repo:
+${repoDataStr}
+
+Return JSON only:
+{"summary":"...", "matchScore":0, "whyMatches":["...","..."], "firstSteps":["...","..."], "difficulty":"Easy|Medium|Hard"}`
+
+    const result = await callGroqWithFallback(prompt, {
       temperature: 0.3,
-      max_tokens: 500,
-      messages: [
-        { role: "system", content: OSS120B_SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `User Profile:\n${userProfileStr}\n\nRepo:\n${repoDataStr}\n\nReturn JSON only:
-{"summary":"...", "matchScore":0, "whyMatches":["...","..."], "firstSteps":["...","..."], "difficulty":"Easy|Medium|Hard"}`,
-        },
-      ],
+      maxTokens: 500,
+      timeout: 15000, // 15 seconds for single repo
     })
 
-    const response = completion.choices?.[0]?.message?.content?.trim()
-    if (!response) throw new Error("Empty OSS-120B response")
+    if (!result.success) {
+      throw new Error(result.error)
+    }
+
+    const response = result.data.trim()
+    if (!response) throw new Error("Empty Groq response")
 
     let jsonStr = response
     if (jsonStr.startsWith("```")) {
@@ -261,7 +266,7 @@ Contribution Friendliness: ${repoSignals.contributionFriendliness}%
       difficulty: parsed.difficulty || "Medium",
     }
   } catch (error) {
-    console.error("[OSS-120B] Error generating match reasoning:", error)
+    console.error("[Groq] Error generating match reasoning:", error)
     return {
       reason: "Recommended for your profile",
       matchFactors: ["Open source", "Active repository"],
