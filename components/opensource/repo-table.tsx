@@ -52,11 +52,17 @@ function RankBadge({ index }: { index: number }) {
   return <Badge className={`${styles[index]} font-semibold px-2 py-0.5`}>{labels[index]}</Badge>
 }
 
-function PopularityBadge({ stars, index }: { stars: number; index: number }) {
-  if (index < 3) {
+function PopularityBadge({ stars }: { stars: number }) {
+  if (stars >= 50000) {
     return <Badge className="bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 font-medium">Legendary</Badge>
   }
-  return <Badge className="bg-purple-500/20 text-purple-400 border border-purple-500/30 font-medium">Famous</Badge>
+  if (stars >= 10000) {
+    return <Badge className="bg-purple-500/20 text-purple-400 border border-purple-500/30 font-medium">Famous</Badge>
+  }
+  if (stars >= 1000) {
+    return <Badge className="bg-blue-500/20 text-blue-400 border border-blue-500/30 font-medium">Popular</Badge>
+  }
+  return null
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -353,7 +359,7 @@ export function RepoTable({
                           <span className="text-xs text-gray-500">No Type</span>
                         )
                       ) : (
-                        <PopularityBadge stars={repo.stargazers_count} index={index} />
+                        <PopularityBadge stars={repo.stargazers_count} />
                       )}
                     </td>
                     <td className="px-4 py-3 md:py-4 text-right align-middle">
