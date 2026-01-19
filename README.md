@@ -23,10 +23,11 @@
 - **🔖 Bookmarks:** Save repositories for later. Works seamlessly for both guest users (local storage) and authenticated users (cloud sync)
 - **👥 Authentication:** Optional GitHub authentication unlocks personalized experiences and cloud bookmark sync
 
-### Admin Features
+### Admin & AI Features
 
 - **🛡️ Admin Panel:** Manage staff picks with custom badges and notes
-- **🏷️ Badge System:** Categorize staff picks with predefined badges (Startup, Bug Bounty, GSSoC, AI, DevTools) or custom labels
+- **🏷️ Badge System:** Categorize staff picks with predefined badges (Startup, Bug Bounty, GSoC, AI, DevTools) or custom labels
+- **🧠 AI-Powered Recommendations:** Use AI to suggest repositories that match a developer’s profile, interests, and activity
 - **📈 Analytics Dashboard:** Track staff picks, badges, and repository statistics
 
 ### User Experience

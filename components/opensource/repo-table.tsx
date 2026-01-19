@@ -54,21 +54,37 @@ function RankBadge({ index }: { index: number }) {
 
 function PopularityBadge({ stars }: { stars: number }) {
   if (stars >= 50000) {
-    return <Badge className="bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 font-medium">Legendary</Badge>
+    return (
+      <Badge className="bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 font-medium">
+        Legendary
+      </Badge>
+    )
   }
   if (stars >= 10000) {
-    return <Badge className="bg-purple-500/20 text-purple-400 border border-purple-500/30 font-medium">Famous</Badge>
+    return (
+      <Badge className="bg-purple-500/20 text-purple-400 border border-purple-500/30 font-medium">
+        Popular
+      </Badge>
+    )
   }
   if (stars >= 1000) {
-    return <Badge className="bg-blue-500/20 text-blue-400 border border-blue-500/30 font-medium">Popular</Badge>
+    return (
+      <Badge className="bg-blue-500/20 text-blue-400 border border-blue-500/30 font-medium">
+        Rising
+      </Badge>
+    )
   }
-  return null
+  return (
+    <Badge className="bg-gray-500/20 text-gray-300 border border-gray-500/30 font-medium">
+      Beginner
+    </Badge>
+  )
 }
 
 const TYPE_LABELS: Record<string, string> = {
   startup: "Startup",
   bug_bounty: "Bug Bounty",
-  gssoc: "GSSoC",
+  gsoc: "GSoC",
   ai: "AI",
   devtools: "DevTools",
 }
@@ -309,9 +325,6 @@ export function RepoTable({
                     <td className="px-4 py-3 md:py-4 align-middle">
                       <div className="inline-flex items-center gap-2">
                         {showRank ? <RankBadge index={index} /> : getLanguageBadge(repo.language)}
-                        <span className="hidden sm:inline-block h-6 px-2 rounded-full border border-white/10 bg-white/5 text-[11px] text-[#cfd0d3]">
-                          Stable
-                        </span>
                       </div>
                     </td>
                     <td className="hidden lg:table-cell px-4 py-3 md:py-4 align-middle">

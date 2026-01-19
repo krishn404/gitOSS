@@ -19,7 +19,7 @@ import Link from "next/link"
 const BADGE_OPTIONS = [
   { value: "startup", label: "Startup" },
   { value: "bug_bounty", label: "Bug Bounty" },
-  { value: "gssoc", label: "GSSoC" },
+  { value: "gsoc", label: "GSoC" },
   { value: "ai", label: "AI" },
   { value: "devtools", label: "DevTools" },
 ] as const

@@ -300,7 +300,7 @@ export const getOverview = query({
 
     staffPickCount = picks.length
 
-    const builtinBadges = new Set(["startup", "bug_bounty", "gssoc", "ai", "devtools"])
+    const builtinBadges = new Set(["startup", "bug_bounty", "gsoc", "ai", "devtools"])
 
     for (const repo of picks) {
       const first = repo.staffPickBadges[0]

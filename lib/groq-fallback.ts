@@ -1,11 +1,4 @@
-/**
- * Groq AI Model Fallback System
- * 
- * Tries Groq models in priority order until one succeeds.
- * All models use GROQ_API_KEY (no OPENAI_API_KEY needed).
- * 
- * Production-ready with proper error handling, resource cleanup, and leak prevention.
- */
+
 
 const MODELS = [
   'llama-3.3-70b-versatile',

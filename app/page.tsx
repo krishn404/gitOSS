@@ -538,7 +538,7 @@ export default function LandingPage() {
 
                     <FeatureTile
                       title="Badge-based classification"
-                      description="Repositories grouped using clear badges such as startup, devtools, AI, bug bounty, and GSSoC for faster contextual scanning."
+                      description="Repositories grouped using clear badges such as startup, devtools, AI, bug bounty, and GSoC for faster contextual scanning."
                       className="lg:col-span-4"
                     >
                       <div className="space-y-3 sm:space-y-4">
@@ -556,7 +556,7 @@ export default function LandingPage() {
                               { name: "Devtools", active: true },
                               { name: "AI", active: false },
                               { name: "Bug Bounty", active: false },
-                              { name: "GSSoC", active: false },
+                              { name: "GSoC", active: false },
                               { name: "Community", active: false },
                             ].map((badge) => (
                               <button
